@@ -1,6 +1,0 @@
-title: Prüf-Manager
-tooltip: Durchbrüche prüfen, kommentieren, freigeben oder ablehnen – mit 2D-/3D-Ansicht im Modell. Das Fenster bleibt neben Revit offen und aktualisiert sich alle 5 Sekunden.
-author: IGF
-context: doc-project
-engine:
-  persistent: true

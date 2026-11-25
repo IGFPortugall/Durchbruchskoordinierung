@@ -92,10 +92,32 @@ def elemente_im_pruefset(doc, pruefset):
 
 # ------------------------------------------------------------------ Ebenen
 
-def ebenen(doc):
-    """[{name, hoehe_mm}] aufsteigend, Höhe bezogen auf den internen Ursprung."""
+def alle_ebenen(doc):
+    """Alle Revit-Ebenen: [{name, hoehe_mm}] aufsteigend, Höhe bezogen auf den internen Ursprung."""
     lv = [(l.ProjectElevation * FUSS_MM, l.Name) for l in DB.FilteredElementCollector(doc).OfClass(DB.Level)]
     return [{"name": n, "hoehe_mm": int(round(h))} for h, n in sorted(lv)]
+
+
+def ebenen(doc, geschosse=None):
+    """Ebenen, die als Geschoss zählen (Liste von Namen; leer/None = alle Ebenen)."""
+    alle = alle_ebenen(doc)
+    if geschosse:
+        gew = set(geschosse)
+        auswahl = [e for e in alle if e["name"] in gew]
+        if auswahl:
+            return auswahl
+    return alle
+
+
+_HILFSEBENE = re.compile(r"(\bUK\b|\bOK\b|UKRD|OKRD|OKRB|UKRB|\bRD\b|\bRB\b|\bFBH\b|Hohlk|\bNN\b|Fundament|Attika|"
+                         r"\bOKFF\b|\bUKFF\b|Rohdecke|Rohboden|\bOKRF\b|Unterkante|Oberkante|\bFFB\b)", re.I)
+
+
+def geschoss_vorschlag(doc):
+    """Ebenen ohne typische Hilfsbezeichnungen (OK, UK, RD, RB, FBH, Hohlkörper …) als Geschoss vorschlagen."""
+    namen = [e["name"] for e in alle_ebenen(doc)]
+    vorschlag = [n for n in namen if not _HILFSEBENE.search(n)]
+    return vorschlag or namen
 
 
 def ebene_fuer(z_mm, ebenenliste, toleranz_mm=300):

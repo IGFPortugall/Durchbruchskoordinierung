@@ -6,6 +6,7 @@ Beide Funktionen ändern das Revit-Modell nicht; sie schreiben nur in den Projek
 from __future__ import unicode_literals
 
 import hashlib
+import io
 import os
 import shutil
 import tempfile
@@ -78,7 +79,7 @@ def einreichen_planen(doc, einst, pruefset, fortschritt=None):
     ablage, z = zustand_laden(einst["projektordner"])
     kuerzel = einst["modellkuerzel"] or doc.Title
     firmenkuerzel = einst.get("rolle") or "DB"
-    ebenen = sammeln.ebenen(doc)
+    ebenen = sammeln.ebenen(doc, pruefset.get("geschosse"))
     wirte = sammeln.WirtSuche(doc)
     plan = Plan()
     plan.ausgeschlossen = set(pruefset.get("ausgeschlossen", []))
@@ -162,14 +163,33 @@ def _sha1(pfad):
     return h.hexdigest()[:16]
 
 
+FBX, IFC = "fbx", "ifc"
+FORMAT_TEXT = {
+    FBX: "FBX – schnell (Revit-eigener 3D-Export). Geometrie plus Kategorie, Familie, Typ, Ebene, System und "
+         "Größe aus Revit. Empfohlen für Trassen, Kanäle und Rohre.",
+    IFC: "IFC – langsam, dafür mit allen IFC-Eigenschaftssätzen (Psets). Sinnvoll, wenn andere Programme das "
+         "Modell weiterverwenden sollen.",
+}
+
+
 def ifc_optionen(ansicht_id=None):
+    """Auf Tempo eingestellt: IFC2x3, grobe Tessellierung, keine Mengen/Bounding Boxes/Räume."""
     opt = DB.IFCExportOptions()
-    opt.FileVersion = DB.IFCVersion.IFC4
+    opt.FileVersion = DB.IFCVersion.IFC2x3CV2
     opt.WallAndColumnSplitting = False
     opt.ExportBaseQuantities = False
+    opt.SpaceBoundaryLevel = 0
     # Interne Koordinaten: passt zu den Prüfobjekten (ebenfalls interne Koordinaten)
     opt.AddOption("SitePlacement", "3")
     opt.AddOption("ExportInternalRevitPropertySets", "false")
+    opt.AddOption("ExportIFCCommonPropertySets", "true")
+    opt.AddOption("ExportSchedulesAsPsets", "false")
+    opt.AddOption("ExportRoomsInView", "false")
+    opt.AddOption("Export2DElements", "false")
+    opt.AddOption("ExportBoundingBox", "false")
+    opt.AddOption("ExportSolidModelRep", "false")
+    opt.AddOption("UseActiveViewGeometry", "false")
+    opt.AddOption("TessellationLevelOfDetail", "0.25")
     opt.AddOption("StoreIFCGUID", "false")
     if ansicht_id is not None:
         opt.FilterViewId = ansicht_id
@@ -177,13 +197,9 @@ def ifc_optionen(ansicht_id=None):
     return opt
 
 
-def ifc_aus_ansicht(doc, ansicht, ordner, dateiname, pruefset=None, mit_durchbruechen=False):
-    """Exportiert genau die sichtbaren Elemente der Ansicht als IFC.
-
-    Ohne ``mit_durchbruechen`` werden die Durchbrüche nur innerhalb einer Transaktion
-    ausgeblendet, die danach zurückgerollt wird; die Ansicht bleibt wie eingestellt.
-    """
-    t = DB.Transaction(doc, "DBK: IFC-Export")
+def _mit_ausgeblendeten_durchbruechen(doc, ansicht, pruefset, mit_durchbruechen, export):
+    """Führt ``export()`` aus, während die Durchbrüche in der Ansicht ausgeblendet sind (Transaktion wird zurückgerollt)."""
+    t = DB.Transaction(doc, "DBK: Export")
     t.Start()
     try:
         if pruefset and not mit_durchbruechen:
@@ -191,37 +207,163 @@ def ifc_aus_ansicht(doc, ansicht, ordner, dateiname, pruefset=None, mit_durchbru
             if ids:
                 ansicht.HideElements(sammeln._liste(ids))
         doc.Regenerate()
-        ok = doc.Export(ordner, dateiname, ifc_optionen(ansicht.Id))
+        return export()
     finally:
         t.RollBack()
+
+
+def ifc_aus_ansicht(doc, ansicht, ordner, dateiname, pruefset=None, mit_durchbruechen=False):
+    """Exportiert genau die sichtbaren Elemente der Ansicht als IFC (ohne Durchbrüche)."""
+    ok = _mit_ausgeblendeten_durchbruechen(doc, ansicht, pruefset, mit_durchbruechen,
+                                           lambda: doc.Export(ordner, dateiname, ifc_optionen(ansicht.Id)))
     if not ok:
         raise RuntimeError("Revit hat den IFC-Export abgelehnt.")
     return os.path.join(ordner, dateiname if dateiname.lower().endswith(".ifc") else dateiname + ".ifc")
 
 
-def ifc_veroeffentlichen(doc, einst, ifc_pfad, kuerzel, quelle_titel, kopieren=True):
-    """Legt eine IFC-Datei unter modelle/<Kürzel>/<Hash>.ifc ab und schreibt das Ereignis.
+def fbx_aus_ansicht(doc, ansicht, ordner, dateiname, pruefset=None):
+    """Revit-eigener FBX-Export der 3D-Ansicht (ohne Durchbrüche). Deutlich schneller als IFC."""
+    opt = DB.FBXExportOptions()
+    opt.UseLevelsOfDetail = True
+    opt.LevelsOfDetailValue = 4
+    opt.WithoutBoundaryEdges = True
+    opt.StopOnError = False
+    ansichten = DB.ViewSet()
+    ansichten.Insert(ansicht)
+    ok = _mit_ausgeblendeten_durchbruechen(doc, ansicht, pruefset, False,
+                                           lambda: doc.Export(ordner, dateiname, ansichten, opt))
+    pfad = os.path.join(ordner, dateiname if dateiname.lower().endswith(".fbx") else dateiname + ".fbx")
+    if ok is False or not os.path.isfile(pfad):
+        raise RuntimeError("Revit hat den FBX-Export abgelehnt.")
+    return pfad
 
-    Die Web-App wandelt sie beim ersten Öffnen in Fragments um (modelle/<Kürzel>/<Hash>.frag).
+
+def _param_text(e, bip):
+    p = e.get_Parameter(bip)
+    if p is None or not p.HasValue:
+        return None
+    return p.AsString() or p.AsValueString()
+
+
+def bauteil_infos(doc, ansicht, pruefset=None, fortschritt=None):
+    """Kategorie, Familie, Typ, Ebene, System, Größe und Bounding Box (mm) der sichtbaren Bauteile.
+
+    Für FBX: der Viewer nimmt daraus Kategorien, Eigenschaften und die Ausrichtung.
     """
+    durch = set(sammeln.eid(e.Id) for e in sammeln.elemente_im_pruefset(doc, pruefset or {}))
+    ebenen = dict((sammeln.eid(l.Id), l.Name) for l in DB.FilteredElementCollector(doc).OfClass(DB.Level))
+    elemente = [e for e in DB.FilteredElementCollector(doc, ansicht.Id).WhereElementIsNotElementType()
+                if e.Category is not None and e.Category.CategoryType == DB.CategoryType.Model
+                and sammeln.eid(e.Id) not in durch]
+    infos, gmin, gmax = {}, [1e18] * 3, [-1e18] * 3
+    for i, e in enumerate(elemente):
+        if fortschritt and i % 2000 == 0:
+            fortschritt(i, len(elemente))
+        bb = e.get_BoundingBox(None)
+        if bb is None:
+            continue
+        b = [int(round(v * FUSS)) for v in (bb.Min.X, bb.Min.Y, bb.Min.Z, bb.Max.X, bb.Max.Y, bb.Max.Z)]
+        for k in range(3):
+            gmin[k] = min(gmin[k], b[k])
+            gmax[k] = max(gmax[k], b[k + 3])
+        lvl = getattr(e, "LevelId", None)
+        if lvl is None or lvl == DB.ElementId.InvalidElementId:
+            p = e.get_Parameter(DB.BuiltInParameter.RBS_START_LEVEL_PARAM) or \
+                e.get_Parameter(DB.BuiltInParameter.FAMILY_LEVEL_PARAM)
+            lvl = p.AsElementId() if p is not None and p.StorageType == DB.StorageType.ElementId else None
+        d = {"k": e.Category.Name, "f": sammeln.familienname(e), "t": sammeln.typname(e), "b": b}
+        if lvl is not None and lvl != DB.ElementId.InvalidElementId:
+            d["e"] = ebenen.get(sammeln.eid(lvl))
+        s = _param_text(e, DB.BuiltInParameter.RBS_SYSTEM_NAME_PARAM)
+        if s:
+            d["s"] = s
+        g = _param_text(e, DB.BuiltInParameter.RBS_CALCULATED_SIZE)
+        if g:
+            d["g"] = g
+        infos[str(sammeln.eid(e.Id))] = d
+    return {"bauteile": infos, "bbox_mm": gmin + gmax}
+
+
+FUSS = 304.8
+
+
+def modell_version(doc):
+    """Kennung des gespeicherten Modellstands (ändert sich bei Speichern/Synchronisieren)."""
+    try:
+        v = DB.Document.GetDocumentVersion(doc)
+        return "%s-%s" % (v.VersionGUID, v.NumberOfSaves)
+    except Exception:
+        return None
+
+
+def _kopieren(quelle, ziel, fortschritt=None):
+    """Kopiert in Blöcken mit Fortschritt (MB). Bei Fehler wird die halbe Datei entfernt."""
+    tmp = ziel + ".tmp"
+    gesamt = os.path.getsize(quelle)
+    try:
+        with open(quelle, "rb") as q:
+            with open(tmp, "wb") as z:
+                kopiert = 0
+                while True:
+                    block = q.read(4 << 20)
+                    if not block:
+                        break
+                    z.write(block)
+                    kopiert += len(block)
+                    if fortschritt:
+                        fortschritt(kopiert, gesamt)
+        if os.path.exists(ziel):
+            os.remove(tmp)
+        else:
+            os.rename(tmp, ziel)
+    except Exception:
+        if os.path.exists(tmp):
+            try:
+                os.remove(tmp)
+            except OSError:
+                pass
+        raise
+
+
+def datei_veroeffentlichen(doc, einst, pfad, kuerzel, quelle_titel, format_, geschosse=None, zusatz=None,
+                           version=None, fortschritt=None):
+    """Legt eine Modelldatei unter modelle/<Kürzel>/<Hash>.<format> ab und schreibt das Ereignis.
+
+    zusatz: optionale Bauteil-Infos (dict) – werden als <Hash>.json daneben gelegt (FBX).
+    IFC wandelt die Web-App beim ersten Öffnen in Fragments um.
+    """
+    import json
     from .einstellungen import absender
-    h = _sha1(ifc_pfad)
+    h = _sha1(pfad)
     ordner = os.path.join(einst["projektordner"], "modelle", kuerzel)
     if not os.path.isdir(ordner):
         os.makedirs(ordner)
-    ziel = os.path.join(ordner, h + ".ifc")
+    ziel = os.path.join(ordner, "%s.%s" % (h, format_))
     if not os.path.exists(ziel):
-        if kopieren:
-            shutil.copyfile(ifc_pfad, ziel + ".tmp")
-            os.rename(ziel + ".tmp", ziel)
+        _kopieren(pfad, ziel, fortschritt)
+    daten = {"modell": kuerzel, "datei": "modelle/%s/%s.%s" % (kuerzel, h, format_), "hash": h, "format": format_,
+             "quelle": quelle_titel, "stand": time.strftime("%Y-%m-%d %H:%M"),
+             "ebenen": sammeln.ebenen(doc, geschosse), "groesse_mb": round(os.path.getsize(ziel) / 1e6, 2)}
+    if version:
+        daten["revit_version"] = version
+    if zusatz is not None:
+        info = os.path.join(ordner, "%s.json" % h)
+        text = json.dumps(zusatz, ensure_ascii=False, separators=(",", ":"))
+        if isinstance(text, bytes):
+            text = text.decode("utf-8")
+        with io.open(info + ".tmp", "w", encoding="utf-8") as f:
+            f.write(text)
+        if os.path.exists(info):
+            os.remove(info + ".tmp")
         else:
-            os.rename(ifc_pfad, ziel)
-    elif not kopieren:
-        os.remove(ifc_pfad)
-    daten = {"modell": kuerzel, "datei": "modelle/%s/%s.ifc" % (kuerzel, h), "hash": h, "format": "ifc",
-             "quelle": quelle_titel, "stand": time.strftime("%Y-%m-%d %H:%M"), "ebenen": sammeln.ebenen(doc),
-             "groesse_mb": round(os.path.getsize(ziel) / 1e6, 2)}
+            os.rename(info + ".tmp", info)
+        daten["info"] = "modelle/%s/%s.json" % (kuerzel, h)
     ablage = Ablage(einst["projektordner"], absender(einst))
     ablage.lade_neue()
     ablage.schreibe("modell_veroeffentlicht", None, daten)
     return daten
+
+
+def ifc_veroeffentlichen(doc, einst, ifc_pfad, kuerzel, quelle_titel, kopieren=True):
+    """Kompatibel zum bisherigen Aufruf: IFC-Datei veröffentlichen."""
+    return datei_veroeffentlichen(doc, einst, ifc_pfad, kuerzel, quelle_titel, IFC)

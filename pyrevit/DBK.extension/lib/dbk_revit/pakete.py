@@ -23,7 +23,7 @@ DURCHBRUECHE = "durchbrueche"
 TGA = "tga"
 B = DB.BuiltInCategory
 
-GEWERKE = [
+GEWERKE_TGA = [
     ("Lüftung", [B.OST_DuctCurves, B.OST_DuctFitting, B.OST_DuctAccessory, B.OST_DuctTerminal,
                  B.OST_FlexDuctCurves, B.OST_DuctInsulations]),
     ("Rohrleitungen", [B.OST_PipeCurves, B.OST_PipeFitting, B.OST_PipeAccessory, B.OST_FlexPipeCurves,
@@ -34,7 +34,27 @@ GEWERKE = [
                  B.OST_ElectricalEquipment, B.OST_ElectricalFixtures, B.OST_LightingFixtures]),
     ("Allgemeine Modelle", [B.OST_GenericModel]),
 ]
-GEWERK_NAMEN = [g[0] for g in GEWERKE]
+GEWERKE_BAU = [
+    ("Wände", [B.OST_Walls]),
+    ("Decken, Dächer", [B.OST_Floors, B.OST_Roofs, B.OST_Ceilings]),
+    ("Stützen, Träger, Fundamente", [B.OST_Columns, B.OST_StructuralColumns, B.OST_StructuralFraming,
+                                     B.OST_StructuralFoundation]),
+    ("Treppen, Geländer", [B.OST_Stairs, B.OST_Railings]),
+    ("Türen, Fenster", [B.OST_Doors, B.OST_Windows]),
+    ("Fassade", [B.OST_CurtainWallPanels, B.OST_CurtainWallMullions]),
+    ("Ausbau, Möbel", [B.OST_Furniture, B.OST_Casework, B.OST_SpecialityEquipment]),
+    ("Bauteile allgemein", [B.OST_GenericModel]),
+]
+GEWERKE = GEWERKE_TGA + [g for g in GEWERKE_BAU if g[0] not in [t[0] for t in GEWERKE_TGA]]
+GEWERK_NAMEN = [g[0] for g in GEWERKE_TGA]
+
+# Rollen, die selbst Durchbrüche planen (Reiter „Durchbrüche“ sichtbar)
+ERSTELLER = ("TGA", "HLS", "ELT", "LAB")
+
+
+def gewerke_fuer(rolle):
+    """Gewerke-Liste passend zur Rolle: TGA-Gewerke für Ersteller, Bau-Gewerke für Architektur/Tragwerk."""
+    return GEWERKE_TGA if (rolle or "").upper() in ERSTELLER else GEWERKE_BAU
 
 
 # ------------------------------------------------------------------ Daten
@@ -50,10 +70,39 @@ def speichern(ordner, firma, pakete):
     sammeln.pruefset_speichern(ordner, firma, ps)
 
 
-def neu(art, name, kuerzel):
+def neu(art, name, kuerzel, gewerke=None):
+    if gewerke is None:
+        gewerke = list(GEWERK_NAMEN) if art == TGA else []
     return {"id": uuid.uuid4().hex[:8], "name": name, "art": art, "kuerzel": kuerzel, "aktiv": True,
-            "ebenen": [], "familien": [], "gewerke": list(GEWERK_NAMEN) if art == TGA else [],
+            "ebenen": [], "familien": [], "gewerke": list(gewerke),
             "aus": [], "auch_ifc": False}
+
+
+# ------------------------------------------------------------------ Auswahlvorlagen (Durchbrüche)
+
+def vorlagen_laden(ordner, firma):
+    ps = sammeln.pruefset_laden(ordner, firma)
+    return ps.get("vorlagen", []), ps.get("aktive_vorlage") or ""
+
+
+def vorlagen_speichern(ordner, firma, vorlagen, aktiv):
+    ps = sammeln.pruefset_laden(ordner, firma)
+    ps["vorlagen"] = vorlagen
+    ps["aktive_vorlage"] = aktiv or ""
+    sammeln.pruefset_speichern(ordner, firma, ps)
+
+
+def neue_vorlage(name):
+    """Gespeicherte Durchbruch-Auswahl: Ebenen-Filter, zurückgehaltene Exemplare, bekannte Exemplare."""
+    return {"id": uuid.uuid4().hex[:8], "name": name, "ebenen": [], "aus": [], "bekannt": []}
+
+
+def in_vorlage(vorlage, plan):
+    """Objekt-IDs des Plans, die zur Vorlage gehören (ohne Vorlage: alle)."""
+    if not vorlage:
+        return list(plan.objekte)
+    ebenen = set(vorlage.get("ebenen") or [])
+    return [o for o, d in plan.objekte.items() if not ebenen or d.get("ebene") in ebenen]
 
 
 def ansicht_name(paket):
@@ -64,7 +113,7 @@ def filter_text(paket):
     teile = []
     if paket["art"] == TGA:
         g = paket.get("gewerke") or []
-        teile.append("alle Gewerke" if len(g) == len(GEWERK_NAMEN) else ", ".join(g) or "keine Gewerke")
+        teile.append(", ".join(g) if len(g) <= 3 else "%d Gewerke" % len(g) if g else "keine Gewerke")
     else:
         f = paket.get("familien") or []
         teile.append("alle Familien" if not f else "%d Typen" % len(f))

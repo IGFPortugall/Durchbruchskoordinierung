@@ -29,10 +29,11 @@
     <select id="geschoss" title="Geschoss: im 3D werden darüberliegende Geschosse ausgeblendet, im Grundriss wird 1,00 m über OKFF geschnitten"></select>
     <div class="trenner"></div>
     <button id="schnitt-ebene" title="Schnittebene: danach auf eine Fläche klicken. Die Ebene lässt sich am Pfeil verschieben. Esc bricht ab.">Schnitt setzen</button>
-    <button id="schnitt-box" title="Schnittbox um den ausgewählten Durchbruch (sonst um die Bildmitte). Seiten am Pfeil verschieben.">Schnittbox</button>
+    <button id="schnitt-box" title="Schnittbox um den ausgewählten Durchbruch bzw. das gewählte Bauteil (sonst um die Bildmitte). Seiten im Einstellungsfenster mit Reglern verschieben.">Schnittbox</button>
     <button id="schnitt-weg" title="Alle Schnitte entfernen">Schnitte <span id="schnitt-anzahl">0</span> ×</button>
     <div class="trenner"></div>
-    <div id="ebenen-schalter" class="schalter"></div>
+    <button id="alles" title="Alles zeigen">Alles zeigen</button>
+    <button id="einstellungen" title="Modelle ein-/ausblenden, Navigation, Schnitte, Beschriftung">Ansicht ⚙</button>
   </div>
   <button id="modell-neu" title="IFC-Datei (z. B. Architektur oder Tragwerk) in den Projektordner laden. Sie wird einmalig in Fragments umgewandelt und ist dann für alle sichtbar.">Modell hinzufügen</button>
   <button id="benutzer" class="benutzer" title="Name, Firma und Rolle ändern"></button>
@@ -56,6 +57,7 @@
 
   <section class="mitte">
     <div id="viewer" class="viewer" tabindex="0"></div>
+    <div id="panel" class="panel" hidden></div>
     <div id="hinweis" class="hinweis"></div>
     <div class="legende">
       <span><i style="background:#EF9F27"></i>In Prüfung</span>

@@ -1,5 +1,0 @@
-title: Viewer
-tooltip: Web-Viewer für Ihren Projektordner (aus „Anmelden“) im Browser öffnen. Startet dafür bei Bedarf einen lokalen Server.
-author: IGF
-engine:
-  clean: true

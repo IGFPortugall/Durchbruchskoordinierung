@@ -102,6 +102,30 @@ button.ja { color: var(--ok); border-color: var(--ok); }
 button.nein { color: var(--nein); border-color: var(--nein); }
 .fehlermeldung { color: var(--nein); font-size: 12px; }
 
+#einstellungen.an { background: var(--akzent-bg); color: var(--akzent); }
+.panel { position: absolute; top: 10px; right: 10px; width: 330px; max-height: calc(100% - 60px); display: flex; flex-direction: column;
+  background: var(--flaeche); border: 1px solid var(--linie-stark); border-radius: 12px; z-index: 6; box-shadow: 0 6px 24px rgba(0,0,0,.12); }
+.panel[hidden] { display: none; }
+.p-kopf { display: flex; gap: 2px; padding: 6px 6px 0; border-bottom: 1px solid var(--linie); }
+.p-kopf button { border: 0; border-radius: 6px 6px 0 0; height: 30px; padding: 4px 9px; font-size: 12px; background: transparent; border-bottom: 2px solid transparent; }
+.p-kopf button.an { color: var(--akzent); border-bottom-color: var(--akzent); background: var(--akzent-bg); }
+.p-kopf .p-zu { margin-left: auto; }
+.p-inhalt { overflow-y: auto; padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 6px; }
+.p-abschnitt { font-size: 11px; color: var(--text-3); margin-top: 6px; text-transform: uppercase; letter-spacing: .04em; }
+.p-modell { border: 1px solid var(--linie); border-radius: 8px; padding: 6px 8px; display: flex; flex-direction: column; gap: 4px; }
+.p-zeile { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+.p-zeile button { height: 24px; padding: 0 7px; margin-left: 3px; }
+.p-haupt { display: flex; gap: 6px; align-items: center; cursor: pointer; }
+.p-klein { font-size: 11px; color: var(--text-3); }
+label.p-klein { display: flex; gap: 5px; align-items: center; cursor: pointer; }
+.p-kats { display: flex; flex-direction: column; gap: 2px; padding: 4px 0 2px 18px; max-height: 220px; overflow-y: auto; }
+.p-kats label { display: flex; gap: 6px; align-items: center; cursor: pointer; font-size: 12px; }
+.p-modell summary { cursor: pointer; font-size: 12px; color: var(--text-2); }
+.p-regler { display: grid; grid-template-columns: 70px 1fr 1fr; gap: 6px; align-items: center; font-size: 12px; }
+.p-regler input { width: 100%; accent-color: var(--akzent); }
+.p-knoepfe { display: flex; gap: 6px; flex-wrap: wrap; }
+.p-wahl { display: flex; gap: 8px; align-items: flex-start; border: 1px solid var(--linie); border-radius: 8px; padding: 6px 8px; cursor: pointer; }
+
 .eigenschaften { display: flex; flex-direction: column; margin: 6px 0; }
 .eig { display: grid; grid-template-columns: 42% 58%; gap: 8px; padding: 3px 0; border-bottom: 1px solid var(--linie); font-size: 12px; }
 .eig span:first-child { color: var(--text-2); overflow-wrap: anywhere; }

@@ -127,7 +127,11 @@ export class Ablage {
   alle() { return sortiere(this._ereignisse); }
 
   async liesBinaer(pfadOderUrl) {
-    if (/^https?:\/\//.test(pfadOderUrl)) return (await fetch(pfadOderUrl)).arrayBuffer();
+    if (/^https?:\/\//.test(pfadOderUrl)) {
+      const r = await fetch(pfadOderUrl);
+      if (!r.ok) throw new Error(`${pfadOderUrl}: ${r.status}`);
+      return r.arrayBuffer();
+    }
     return this.zugang.lies(pfadOderUrl);
   }
 

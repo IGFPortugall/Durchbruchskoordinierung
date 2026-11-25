@@ -45,15 +45,18 @@ Bedienung:
 
 Die Erweiterung liegt in `pyrevit/DBK.extension`; der Ordner `pyrevit` ist in pyRevit als Suchpfad eingetragen.
 
-| Knopf | Was passiert |
-|---|---|
-| **Anmelden** | Projektordner, Name, Firma, Rolle, Modellkürzel. Unter „Ansichten“: Vorlagen für 2D/3D-Prüfansichten und Viewer-Adresse |
-| **Prüfset** | Baum Kategorie → Familie → Typ: welche Bauteile Ihre Firma einreicht |
-| **Einreichen** | Assistent (bleibt offen): **1 Pakete** – je Paket eine 3D-Ansicht „DBK Paket – Name“: Durchbruch-Pakete (Filter Ebene, Familie) und TGA-Pakete (Gewerke, Ebenen). **2 Prüfen** – Exemplare je Durchbruch-Paket an-/abwählen, Revit-Auswahl, aus Ansicht übernehmen. **3 Einreichen** – Prüfrunde, Pakete anhaken, „Einreichen und veröffentlichen“: Durchbrüche als Prüfobjekte, TGA-Pakete als IFC |
-| **Prüf-Manager** | Liste, Filter, Freigaben, Chat, Freigeben/Ablehnen; **2D** öffnet „DBK 2D – Ebene – Name“ zugeschnitten, **3D** „DBK 3D – Name“ mit Schnittbox |
-| **Viewer** | Lokalen Server für den Projektordner starten und Web-Viewer öffnen. Fremde IFC (z. B. Architektur) dort über „Modell hinzufügen“ |
+Ein Knopf **Durchbruchskoordination** öffnet ein Werkzeug (bleibt neben Revit offen) mit Reitern – die Reiter richten sich nach der Rolle:
 
-Grundsatz: Was in der Paket-Ansicht sichtbar ist, geht raus. Durchbrüche werden nie ins TGA-IFC exportiert.
+| Reiter | Was passiert |
+|---|---|
+| **Projekt** | Projektordner (legt bei Bedarf ein neues Projekt an), Name, Firma, Rolle, Modellkürzel, Ansichtsvorlagen. Nur beim ersten Mal nötig |
+| **Durchbrüche** (TGA, ELT, Labor) | Links: welche Familien/Typen Durchbrüche sind. Rechts: alle Exemplare nach Ebene mit Zustand (neu, verschoben, schon geschickt, abgelehnt). **Auswahlvorlagen** (z. B. „EG Rohbau“) merken Ebene und zurückgehaltene Exemplare; neu hinzugekommene werden automatisch angehakt |
+| **Modell** | Modell-Vorlagen je Partei (TGA ohne Durchbrüche, Architektur gesamt …) mit eigener Exportansicht „DBK Paket – Name“ |
+| **Einreichen** / **Veröffentlichen** | Zusammenfassung, Prüfrunde, ein Knopf: Durchbrüche als Prüfobjekte, Modelle als IFC in den Viewer |
+
+Oben: **Nächster Hinweis**, **In Revit zeigen**, **Viewer öffnen**. Prüfen, Kommentieren und Freigeben passieren im Viewer (Prüf-Manager für alle).
+
+Grundsatz: Was in der Exportansicht sichtbar ist, geht raus. Durchbrüche werden nie ins Modell-IFC exportiert.
 
 ## Tests
 

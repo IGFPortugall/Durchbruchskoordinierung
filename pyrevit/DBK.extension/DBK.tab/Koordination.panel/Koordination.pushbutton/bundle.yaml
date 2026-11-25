@@ -1,0 +1,6 @@
+title: Durchbruchs-|koordination
+tooltip: Ein Werkzeug für den ganzen Ablauf – Projekt einrichten, Durchbrüche auswählen (mit Auswahlvorlagen), eigenes Modell für den Viewer festlegen, einreichen bzw. veröffentlichen. Prüfen, kommentieren und freigeben passiert im Viewer.
+author: DBK
+context: doc-project
+engine:
+  persistent: true

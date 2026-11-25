@@ -1,6 +1,0 @@
-title: Anmelden
-tooltip: Projektordner, Name, Firma, Rolle und Modellkürzel festlegen. Unter „Ansichten“ die Vorlagen für die 2D- und 3D-Prüfansichten wählen.
-author: IGF
-context: doc-project
-engine:
-  clean: true

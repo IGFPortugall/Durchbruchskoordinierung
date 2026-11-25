@@ -119,12 +119,9 @@ def viewer(d, f):
     d.ellipse(p(40, 48, 56, 64), fill=ORANGE)
 
 
+# Ein Knopf im Menüband; die übrigen Zeichnungen bleiben als Vorrat für spätere Knöpfe.
 SYMBOLE = {
-    "Anmelden": anmelden,
-    "Pruefset": pruefset,
-    "Einreichen": einreichen,
-    "PruefManager": pruef_manager,
-    "Viewer": viewer,
+    "Koordination": pruef_manager,
 }
 
 
