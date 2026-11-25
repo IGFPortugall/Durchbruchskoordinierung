@@ -1,0 +1,6 @@
+title: Einreichen
+tooltip: Assistent in drei Schritten – 1 Pakete festlegen (je Paket eine 3D-Ansicht, z. B. „Durchbrüche EG“, „TGA ohne Durchbrüche“), 2 Durchbrüche prüfen und abwählen, 3 alles einreichen und als IFC veröffentlichen. Das Fenster bleibt neben Revit offen.
+author: IGF
+context: doc-project
+engine:
+  persistent: true

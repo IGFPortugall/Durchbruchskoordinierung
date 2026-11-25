@@ -1,0 +1,1795 @@
+{
+ "szenarien": {
+  "demo": {
+   "ereignisse": [
+    {
+     "art": "modell_veroeffentlicht",
+     "daten": {
+      "datei": "https://thatopen.github.io/engine_components/resources/frags/school_arq.frag",
+      "ebenen": [
+       {
+        "hoehe_mm": -650,
+        "name": "01 - Entry Level"
+       },
+       {
+        "hoehe_mm": 3150,
+        "name": "02 - Floor"
+       },
+       {
+        "hoehe_mm": 6950,
+        "name": "03 - Floor"
+       },
+       {
+        "hoehe_mm": 10750,
+        "name": "Roof"
+       }
+      ],
+      "hash": "school-arq-demo",
+      "modell": "ARC",
+      "quelle": "school_arq.ifc",
+      "stand": "2026-11-10"
+     },
+     "firma": "Architekt XY",
+     "id": "561db73100a643639aca4f11835eac4a",
+     "name": "A. Klein",
+     "objekt": null,
+     "rolle": "ARC",
+     "schema": 1,
+     "seq": 1,
+     "zeit": "2026-11-10T08:00:00.000Z"
+    },
+    {
+     "art": "modell_veroeffentlicht",
+     "daten": {
+      "datei": "https://thatopen.github.io/engine_components/resources/ifc/school_str.ifc",
+      "hash": "school-str-demo",
+      "modell": "TWP",
+      "quelle": "school_str.ifc",
+      "stand": "2026-11-10"
+     },
+     "firma": "Tragwerk Z",
+     "id": "96f4a1fe82f14e10ad79f427baa84378",
+     "name": "M. Weber",
+     "objekt": null,
+     "rolle": "TWP",
+     "schema": 1,
+     "seq": 1,
+     "zeit": "2026-11-10T08:30:00.000Z"
+    },
+    {
+     "art": "pruefrunde_gestartet",
+     "daten": {
+      "frist": "2026-12-12",
+      "name": "Runde 1 – Rohbau EG–2.OG",
+      "runde": "R1"
+     },
+     "firma": "IGF",
+     "id": "97c4cede9cbe4ea18030fb4ad4cc1653",
+     "name": "T. Planer",
+     "objekt": null,
+     "rolle": "TGA",
+     "schema": 1,
+     "seq": 1,
+     "zeit": "2026-11-12T09:00:00.000Z"
+    },
+    {
+     "art": "eingereicht",
+     "daten": {
+      "objekt": {
+       "ebene": "01 - Entry Level",
+       "familie": "IGF_Durchbruch_Rechteck",
+       "flaeche_m2": 0.12,
+       "geometrie": {
+        "form": "rechteck",
+        "masse": {
+         "breite": 400,
+         "hoehe": 300
+        },
+        "max": [
+         18400,
+         -6900,
+         2500
+        ],
+        "min": [
+         18000,
+         -7180,
+         2200
+        ]
+       },
+       "geometrie_hash": "d8c13c0eb7a38f72",
+       "gewerke": [
+        "Lüftung"
+       ],
+       "groesse": "400×300",
+       "kategorie": "Allgemeines Modell",
+       "modell": "HLS",
+       "nummer": "TGA-EG-0001",
+       "typ": "Wand",
+       "uk_mm": 2200,
+       "wirt": {
+        "kategorie": "Wände",
+        "tragend": true
+       }
+      },
+      "runde": "R1"
+     },
+     "firma": "IGF",
+     "id": "86aa45b20fef4d93adaf5a634183e74c",
+     "name": "T. Planer",
+     "objekt": "HLS:db-0001",
+     "rolle": "TGA",
+     "schema": 1,
+     "seq": 2,
+     "zeit": "2026-11-12T09:10:00.000Z"
+    },
+    {
+     "art": "eingereicht",
+     "daten": {
+      "objekt": {
+       "ebene": "01 - Entry Level",
+       "familie": "IGF_Durchbruch_Rechteck",
+       "flaeche_m2": 0.18,
+       "geometrie": {
+        "form": "rechteck",
+        "masse": {
+         "breite": 600,
+         "hoehe": 300
+        },
+        "max": [
+         16200,
+         -2000,
+         2600
+        ],
+        "min": [
+         15920,
+         -2600,
+         2300
+        ]
+       },
+       "geometrie_hash": "ccf98f17133142dd",
+       "gewerke": [
+        "Lüftung"
+       ],
+       "groesse": "600×300",
+       "kategorie": "Allgemeines Modell",
+       "modell": "HLS",
+       "nummer": "TGA-EG-0002",
+       "typ": "Wand",
+       "uk_mm": 2300,
+       "wirt": {
+        "kategorie": "Wände",
+        "tragend": true
+       }
+      },
+      "runde": "R1"
+     },
+     "firma": "IGF",
+     "id": "5a1bac1810a5401d8c9006a5ec1c5408",
+     "name": "T. Planer",
+     "objekt": "HLS:db-0002",
+     "rolle": "TGA",
+     "schema": 1,
+     "seq": 3,
+     "zeit": "2026-11-12T09:11:00.000Z"
+    },
+    {
+     "art": "eingereicht",
+     "daten": {
+      "objekt": {
+       "ebene": "01 - Entry Level",
+       "familie": "IGF_Durchbruch_Rund",
+       "flaeche_m2": 0.031,
+       "geometrie": {
+        "form": "rund",
+        "masse": {
+         "durchmesser": 200
+        },
+        "max": [
+         2100,
+         -26820,
+         2500
+        ],
+        "min": [
+         1900,
+         -27100,
+         2300
+        ]
+       },
+       "geometrie_hash": "aec5949b454202aa",
+       "gewerke": [
+        "Sanitär"
+       ],
+       "groesse": "Ø200",
+       "kategorie": "Allgemeines Modell",
+       "modell": "HLS",
+       "nummer": "TGA-EG-0003",
+       "typ": "Wand",
+       "uk_mm": 2300,
+       "wirt": {
+        "kategorie": "Wände",
+        "tragend": false
+       }
+      },
+      "runde": "R1"
+     },
+     "firma": "IGF",
+     "id": "72cb71dc753440ec8a497c515621cd67",
+     "name": "T. Planer",
+     "objekt": "HLS:db-0003",
+     "rolle": "TGA",
+     "schema": 1,
+     "seq": 4,
+     "zeit": "2026-11-12T09:12:00.000Z"
+    },
+    {
+     "art": "eingereicht",
+     "daten": {
+      "objekt": {
+       "ebene": "01 - Entry Level",
+       "familie": "IGF_Durchbruch_Rechteck",
+       "flaeche_m2": 0.125,
+       "geometrie": {
+        "form": "rechteck",
+        "masse": {
+         "breite": 500,
+         "hoehe": 250
+        },
+        "max": [
+         27500,
+         -1260,
+         2650
+        ],
+        "min": [
+         27000,
+         -1540,
+         2400
+        ]
+       },
+       "geometrie_hash": "019c380cde6477e7",
+       "gewerke": [
+        "Heizung"
+       ],
+       "groesse": "500×250",
+       "kategorie": "Allgemeines Modell",
+       "modell": "HLS",
+       "nummer": "TGA-EG-0004",
+       "typ": "Wand",
+       "uk_mm": 2400,
+       "wirt": {
+        "kategorie": "Wände",
+        "tragend": false
+       }
+      },
+      "runde": "R1"
+     },
+     "firma": "IGF",
+     "id": "d7947ed03662490480a5ac21af3f2902",
+     "name": "T. Planer",
+     "objekt": "HLS:db-0004",
+     "rolle": "TGA",
+     "schema": 1,
+     "seq": 5,
+     "zeit": "2026-11-12T09:13:00.000Z"
+    },
+    {
+     "art": "eingereicht",
+     "daten": {
+      "objekt": {
+       "ebene": "01 - Entry Level",
+       "familie": "IGF_Durchbruch_Rechteck",
+       "flaeche_m2": 0.3,
+       "geometrie": {
+        "form": "rechteck",
+        "masse": {
+         "breite": 600,
+         "hoehe": 450
+        },
+        "max": [
+         24600,
+         -4000,
+         3250
+        ],
+        "min": [
+         24000,
+         -4500,
+         2800
+        ]
+       },
+       "geometrie_hash": "85b5b7f88a96cdf7",
+       "gewerke": [
+        "Lüftung"
+       ],
+       "groesse": "600×500",
+       "kategorie": "Allgemeines Modell",
+       "modell": "HLS",
+       "nummer": "TGA-EG-0005",
+       "typ": "Decke",
+       "uk_mm": 2800,
+       "wirt": {
+        "kategorie": "Geschossdecken",
+        "tragend": true
+       }
+      },
+      "runde": "R1"
+     },
+     "firma": "IGF",
+     "id": "d5f0b9c5f51f45e9890c1af4a7d105e4",
+     "name": "T. Planer",
+     "objekt": "HLS:db-0005",
+     "rolle": "TGA",
+     "schema": 1,
+     "seq": 6,
+     "zeit": "2026-11-12T09:14:00.000Z"
+    },
+    {
+     "art": "eingereicht",
+     "daten": {
+      "objekt": {
+       "ebene": "02 - Floor",
+       "familie": "IGF_Durchbruch_Rechteck",
+       "flaeche_m2": 0.12,
+       "geometrie": {
+        "form": "rechteck",
+        "masse": {
+         "breite": 400,
+         "hoehe": 300
+        },
+        "max": [
+         14400,
+         -46470,
+         5900
+        ],
+        "min": [
+         14000,
+         -46750,
+         5600
+        ]
+       },
+       "geometrie_hash": "3a9d31ac6e5d5c55",
+       "gewerke": [
+        "Lüftung"
+       ],
+       "groesse": "400×300",
+       "kategorie": "Allgemeines Modell",
+       "modell": "HLS",
+       "nummer": "TGA-OG1-0006",
+       "typ": "Wand",
+       "uk_mm": 5600,
+       "wirt": {
+        "kategorie": "Wände",
+        "tragend": true
+       }
+      },
+      "runde": "R1"
+     },
+     "firma": "IGF",
+     "id": "7ba07ce803b645d39ccd5e50e9dc2851",
+     "name": "T. Planer",
+     "objekt": "HLS:db-0006",
+     "rolle": "TGA",
+     "schema": 1,
+     "seq": 7,
+     "zeit": "2026-11-12T09:15:00.000Z"
+    },
+    {
+     "art": "eingereicht",
+     "daten": {
+      "objekt": {
+       "ebene": "03 - Floor",
+       "familie": "IGF_Durchbruch_Rechteck",
+       "flaeche_m2": 0.15,
+       "geometrie": {
+        "form": "rechteck",
+        "masse": {
+         "breite": 500,
+         "hoehe": 300
+        },
+        "max": [
+         17500,
+         -46470,
+         9700
+        ],
+        "min": [
+         17000,
+         -46750,
+         9400
+        ]
+       },
+       "geometrie_hash": "7a377a830c4587b1",
+       "gewerke": [
+        "Heizung"
+       ],
+       "groesse": "500×300",
+       "kategorie": "Allgemeines Modell",
+       "modell": "HLS",
+       "nummer": "TGA-OG2-0007",
+       "typ": "Wand",
+       "uk_mm": 9400,
+       "wirt": {
+        "kategorie": "Wände",
+        "tragend": true
+       }
+      },
+      "runde": "R1"
+     },
+     "firma": "IGF",
+     "id": "bc1c89747fe1463e9fc372ddad06b404",
+     "name": "T. Planer",
+     "objekt": "HLS:db-0007",
+     "rolle": "TGA",
+     "schema": 1,
+     "seq": 8,
+     "zeit": "2026-11-12T09:16:00.000Z"
+    },
+    {
+     "art": "eingereicht",
+     "daten": {
+      "objekt": {
+       "ebene": "02 - Floor",
+       "familie": "IGF_Durchbruch_Rechteck",
+       "flaeche_m2": 0.15,
+       "geometrie": {
+        "form": "rechteck",
+        "masse": {
+         "breite": 500,
+         "hoehe": 300
+        },
+        "max": [
+         -1780,
+         -15000,
+         6100
+        ],
+        "min": [
+         -2250,
+         -15500,
+         5800
+        ]
+       },
+       "geometrie_hash": "b23483367891fa05",
+       "gewerke": [
+        "Elektro"
+       ],
+       "groesse": "500×300",
+       "kategorie": "Allgemeines Modell",
+       "modell": "HLS",
+       "nummer": "ELT-OG1-0101",
+       "typ": "Wand",
+       "uk_mm": 5800,
+       "wirt": {
+        "kategorie": "Wände",
+        "tragend": true
+       }
+      },
+      "runde": "R1"
+     },
+     "firma": "IGF",
+     "id": "23e5a9bbaf714fbe8db6119fab644ac7",
+     "name": "S. Elektra",
+     "objekt": "ELT:db-0101",
+     "rolle": "ELT",
+     "schema": 1,
+     "seq": 9,
+     "zeit": "2026-11-12T09:17:00.000Z"
+    },
+    {
+     "art": "status",
+     "daten": {
+      "geometrie_hash": "d8c13c0eb7a38f72",
+      "kommentar": null,
+      "kontext": {
+       "ARC": "school-arq-demo",
+       "TWP": "school-str-demo"
+      },
+      "wert": "freigegeben"
+     },
+     "firma": "Architekt XY",
+     "id": "d6d0e1e055be4cba9c7eeffb30a6c0e4",
+     "name": "A. Klein",
+     "objekt": "HLS:db-0001",
+     "rolle": "ARC",
+     "schema": 1,
+     "seq": 2,
+     "zeit": "2026-11-13T10:00:00.000Z"
+    },
+    {
+     "art": "status",
+     "daten": {
+      "geometrie_hash": "019c380cde6477e7",
+      "kommentar": null,
+      "kontext": {
+       "ARC": "school-arq-demo",
+       "TWP": "school-str-demo"
+      },
+      "wert": "freigegeben"
+     },
+     "firma": "Architekt XY",
+     "id": "f34261dbb5f44d7db6e60fea76d82cfd",
+     "name": "A. Klein",
+     "objekt": "HLS:db-0004",
+     "rolle": "ARC",
+     "schema": 1,
+     "seq": 3,
+     "zeit": "2026-11-13T10:10:00.000Z"
+    },
+    {
+     "art": "status",
+     "daten": {
+      "geometrie_hash": "3a9d31ac6e5d5c55",
+      "kommentar": "Klärung Fassadenanschluss offen.",
+      "kontext": {
+       "ARC": "school-arq-demo",
+       "TWP": "school-str-demo"
+      },
+      "wert": "zurueckgestellt"
+     },
+     "firma": "Architekt XY",
+     "id": "9d72f060c7324b73b15e4c76e2934551",
+     "name": "A. Klein",
+     "objekt": "HLS:db-0006",
+     "rolle": "ARC",
+     "schema": 1,
+     "seq": 4,
+     "zeit": "2026-11-13T10:20:00.000Z"
+    },
+    {
+     "art": "status",
+     "daten": {
+      "geometrie_hash": "b23483367891fa05",
+      "kommentar": null,
+      "kontext": {
+       "ARC": "school-arq-demo",
+       "TWP": "school-str-demo"
+      },
+      "wert": "freigegeben"
+     },
+     "firma": "Architekt XY",
+     "id": "b4f5ff7e70b1466fa5b80a2362e57c20",
+     "name": "A. Klein",
+     "objekt": "ELT:db-0101",
+     "rolle": "ARC",
+     "schema": 1,
+     "seq": 5,
+     "zeit": "2026-11-13T10:30:00.000Z"
+    },
+    {
+     "art": "status",
+     "daten": {
+      "geometrie_hash": "d8c13c0eb7a38f72",
+      "kommentar": null,
+      "kontext": {
+       "ARC": "school-arq-demo",
+       "TWP": "school-str-demo"
+      },
+      "wert": "freigegeben"
+     },
+     "firma": "Tragwerk Z",
+     "id": "0238df11ea1c4209a3fcb362a3b398ab",
+     "name": "M. Weber",
+     "objekt": "HLS:db-0001",
+     "rolle": "TWP",
+     "schema": 1,
+     "seq": 2,
+     "zeit": "2026-11-13T11:00:00.000Z"
+    },
+    {
+     "art": "nachricht",
+     "daten": {
+      "text": "Liegt direkt neben dem Unterzug in Achse 3."
+     },
+     "firma": "Tragwerk Z",
+     "id": "fc27f302798a4371baee592d0227396f",
+     "name": "M. Weber",
+     "objekt": "HLS:db-0002",
+     "rolle": "TWP",
+     "schema": 1,
+     "seq": 3,
+     "zeit": "2026-11-13T11:20:00.000Z"
+    },
+    {
+     "art": "status",
+     "daten": {
+      "geometrie_hash": "ccf98f17133142dd",
+      "kommentar": "Abstand zum Unterzug min. 25 cm.",
+      "kontext": {
+       "ARC": "school-arq-demo",
+       "TWP": "school-str-demo"
+      },
+      "wert": "abgelehnt"
+     },
+     "firma": "Tragwerk Z",
+     "id": "a0e4bf35144245f58a6dd91202e20bb0",
+     "name": "M. Weber",
+     "objekt": "HLS:db-0002",
+     "rolle": "TWP",
+     "schema": 1,
+     "seq": 4,
+     "zeit": "2026-11-13T11:21:00.000Z"
+    },
+    {
+     "art": "status",
+     "daten": {
+      "geometrie_hash": "85b5b7f88a96cdf7",
+      "kommentar": "Durchbruch schneidet Bewehrungszone Stütze.",
+      "kontext": {
+       "ARC": "school-arq-demo",
+       "TWP": "school-str-demo"
+      },
+      "wert": "abgelehnt"
+     },
+     "firma": "Tragwerk Z",
+     "id": "ef9c25c62ece4cdf962f721db71c00d6",
+     "name": "M. Weber",
+     "objekt": "HLS:db-0005",
+     "rolle": "TWP",
+     "schema": 1,
+     "seq": 5,
+     "zeit": "2026-11-13T11:40:00.000Z"
+    },
+    {
+     "art": "status",
+     "daten": {
+      "geometrie_hash": "b23483367891fa05",
+      "kommentar": null,
+      "kontext": {
+       "ARC": "school-arq-demo",
+       "TWP": "school-str-demo"
+      },
+      "wert": "freigegeben"
+     },
+     "firma": "Tragwerk Z",
+     "id": "cb96c0ccae9848e7be2ae1e3ead5cf95",
+     "name": "M. Weber",
+     "objekt": "ELT:db-0101",
+     "rolle": "TWP",
+     "schema": 1,
+     "seq": 6,
+     "zeit": "2026-11-13T11:50:00.000Z"
+    },
+    {
+     "art": "nachricht",
+     "daten": {
+      "text": "Prüfen wir, ggf. Kanal nach unten verziehen."
+     },
+     "firma": "IGF",
+     "id": "ce3297bbe4474ea9ba1bacff4ab7a2b5",
+     "name": "T. Planer",
+     "objekt": "HLS:db-0002",
+     "rolle": "TGA",
+     "schema": 1,
+     "seq": 9,
+     "zeit": "2026-11-13T14:05:00.000Z"
+    },
+    {
+     "art": "nachricht",
+     "daten": {
+      "text": "Um 60 cm nach Osten verschoben."
+     },
+     "firma": "IGF",
+     "id": "93ffd0f373184540bb7e9f1aedd99193",
+     "name": "T. Planer",
+     "objekt": "HLS:db-0005",
+     "rolle": "TGA",
+     "schema": 1,
+     "seq": 10,
+     "zeit": "2026-11-14T08:30:00.000Z"
+    },
+    {
+     "art": "eingereicht",
+     "daten": {
+      "objekt": {
+       "ebene": "01 - Entry Level",
+       "familie": "IGF_Durchbruch_Rechteck",
+       "flaeche_m2": 0.3,
+       "geometrie": {
+        "form": "rechteck",
+        "masse": {
+         "breite": 600,
+         "hoehe": 450
+        },
+        "max": [
+         25200,
+         -4000,
+         3250
+        ],
+        "min": [
+         24600,
+         -4500,
+         2800
+        ]
+       },
+       "geometrie_hash": "37d716e345530202",
+       "gewerke": [
+        "Lüftung"
+       ],
+       "groesse": "600×500",
+       "kategorie": "Allgemeines Modell",
+       "modell": "HLS",
+       "nummer": "TGA-EG-0005",
+       "typ": "Decke",
+       "uk_mm": 2800,
+       "wirt": {
+        "kategorie": "Geschossdecken",
+        "tragend": true
+       }
+      },
+      "runde": "R1"
+     },
+     "firma": "IGF",
+     "id": "6489ea96e44942459d89966c811703c7",
+     "name": "T. Planer",
+     "objekt": "HLS:db-0005",
+     "rolle": "TGA",
+     "schema": 1,
+     "seq": 11,
+     "zeit": "2026-11-14T08:31:00.000Z"
+    },
+    {
+     "art": "status",
+     "daten": {
+      "geometrie_hash": "37d716e345530202",
+      "kommentar": null,
+      "kontext": {
+       "ARC": "school-arq-demo",
+       "TWP": "school-str-demo"
+      },
+      "wert": "freigegeben"
+     },
+     "firma": "Brandschutz B",
+     "id": "622ab9d42ee64216999292d7cec224d4",
+     "name": "K. Feuer",
+     "objekt": "HLS:db-0005",
+     "rolle": "BS",
+     "schema": 1,
+     "seq": 1,
+     "zeit": "2026-11-14T09:15:00.000Z"
+    }
+   ],
+   "erwartet": {
+    "gesamtstatus": {
+     "ELT:db-0101": {
+      "geaendert": false,
+      "pflicht_erfuellt": 2,
+      "pflicht_gesamt": 2,
+      "rollen": {
+       "ARC": {
+        "status": "freigegeben",
+        "stufe": "pflicht",
+        "veraltet": false,
+        "wirkung": "freigabe"
+       },
+       "TGA": {
+        "status": null,
+        "stufe": "info",
+        "veraltet": false,
+        "wirkung": null
+       },
+       "TWP": {
+        "status": "freigegeben",
+        "stufe": "pflicht",
+        "veraltet": false,
+        "wirkung": "freigabe"
+       }
+      },
+      "status": "freigegeben",
+      "wirkung": "freigabe"
+     },
+     "HLS:db-0001": {
+      "geaendert": false,
+      "pflicht_erfuellt": 2,
+      "pflicht_gesamt": 2,
+      "rollen": {
+       "ARC": {
+        "status": "freigegeben",
+        "stufe": "pflicht",
+        "veraltet": false,
+        "wirkung": "freigabe"
+       },
+       "TGA": {
+        "status": null,
+        "stufe": "info",
+        "veraltet": false,
+        "wirkung": null
+       },
+       "TWP": {
+        "status": "freigegeben",
+        "stufe": "pflicht",
+        "veraltet": false,
+        "wirkung": "freigabe"
+       }
+      },
+      "status": "freigegeben",
+      "wirkung": "freigabe"
+     },
+     "HLS:db-0002": {
+      "geaendert": false,
+      "pflicht_erfuellt": 0,
+      "pflicht_gesamt": 2,
+      "rollen": {
+       "ARC": {
+        "status": null,
+        "stufe": "pflicht",
+        "veraltet": false,
+        "wirkung": null
+       },
+       "TGA": {
+        "status": null,
+        "stufe": "info",
+        "veraltet": false,
+        "wirkung": null
+       },
+       "TWP": {
+        "status": "abgelehnt",
+        "stufe": "pflicht",
+        "veraltet": false,
+        "wirkung": "blockiert"
+       }
+      },
+      "status": "abgelehnt",
+      "wirkung": "blockiert"
+     },
+     "HLS:db-0003": {
+      "geaendert": false,
+      "pflicht_erfuellt": 0,
+      "pflicht_gesamt": 1,
+      "rollen": {
+       "ARC": {
+        "status": null,
+        "stufe": "pflicht",
+        "veraltet": false,
+        "wirkung": null
+       }
+      },
+      "status": "in_pruefung",
+      "wirkung": "offen"
+     },
+     "HLS:db-0004": {
+      "geaendert": false,
+      "pflicht_erfuellt": 1,
+      "pflicht_gesamt": 1,
+      "rollen": {
+       "ARC": {
+        "status": "freigegeben",
+        "stufe": "pflicht",
+        "veraltet": false,
+        "wirkung": "freigabe"
+       }
+      },
+      "status": "freigegeben",
+      "wirkung": "freigabe"
+     },
+     "HLS:db-0005": {
+      "geaendert": true,
+      "pflicht_erfuellt": 1,
+      "pflicht_gesamt": 3,
+      "rollen": {
+       "ARC": {
+        "status": null,
+        "stufe": "pflicht",
+        "veraltet": false,
+        "wirkung": null
+       },
+       "BS": {
+        "status": "freigegeben",
+        "stufe": "pflicht",
+        "veraltet": false,
+        "wirkung": "freigabe"
+       },
+       "TWP": {
+        "status": null,
+        "stufe": "pflicht",
+        "veraltet": true,
+        "wirkung": null
+       }
+      },
+      "status": "in_pruefung",
+      "wirkung": "offen"
+     },
+     "HLS:db-0006": {
+      "geaendert": false,
+      "pflicht_erfuellt": 0,
+      "pflicht_gesamt": 2,
+      "rollen": {
+       "ARC": {
+        "status": "zurueckgestellt",
+        "stufe": "pflicht",
+        "veraltet": false,
+        "wirkung": "offen"
+       },
+       "TGA": {
+        "status": null,
+        "stufe": "info",
+        "veraltet": false,
+        "wirkung": null
+       },
+       "TWP": {
+        "status": null,
+        "stufe": "pflicht",
+        "veraltet": false,
+        "wirkung": null
+       }
+      },
+      "status": "in_pruefung",
+      "wirkung": "offen"
+     },
+     "HLS:db-0007": {
+      "geaendert": false,
+      "pflicht_erfuellt": 0,
+      "pflicht_gesamt": 2,
+      "rollen": {
+       "ARC": {
+        "status": null,
+        "stufe": "pflicht",
+        "veraltet": false,
+        "wirkung": null
+       },
+       "TGA": {
+        "status": null,
+        "stufe": "info",
+        "veraltet": false,
+        "wirkung": null
+       },
+       "TWP": {
+        "status": null,
+        "stufe": "pflicht",
+        "veraltet": false,
+        "wirkung": null
+       }
+      },
+      "status": "in_pruefung",
+      "wirkung": "offen"
+     }
+    },
+    "ignoriert": 0,
+    "modelle": {
+     "ARC": "school-arq-demo",
+     "TWP": "school-str-demo"
+    },
+    "objekte": [
+     "ELT:db-0101",
+     "HLS:db-0001",
+     "HLS:db-0002",
+     "HLS:db-0003",
+     "HLS:db-0004",
+     "HLS:db-0005",
+     "HLS:db-0006",
+     "HLS:db-0007"
+    ],
+    "runden": [
+     "R1"
+    ],
+    "verlauf_laengen": {
+     "ELT:db-0101": 3,
+     "HLS:db-0001": 3,
+     "HLS:db-0002": 4,
+     "HLS:db-0003": 1,
+     "HLS:db-0004": 2,
+     "HLS:db-0005": 5,
+     "HLS:db-0006": 2,
+     "HLS:db-0007": 1
+    },
+    "wartet_auf_firma": {
+     "Architekt XY": [],
+     "Brandschutz B": [],
+     "IGF": [
+      "HLS:db-0002"
+     ],
+     "Tragwerk Z": []
+    },
+    "wartet_auf_rolle": {
+     "ARC": [
+      "HLS:db-0002",
+      "HLS:db-0003",
+      "HLS:db-0005",
+      "HLS:db-0007"
+     ],
+     "BH": [],
+     "BS": [],
+     "ELT": [],
+     "LAB": [],
+     "TGA": [],
+     "TWP": [
+      "HLS:db-0005",
+      "HLS:db-0006",
+      "HLS:db-0007"
+     ]
+    }
+   },
+   "projekt": {
+    "name": "Demo – Schule (That-Open-Beispiel)",
+    "regeln": [
+     {
+      "name": "Wand tragend",
+      "rollen": {
+       "ARC": "pflicht",
+       "TGA": "info",
+       "TWP": "pflicht"
+      },
+      "wenn": {
+       "wirt.kategorie": "Wände",
+       "wirt.tragend": true
+      }
+     },
+     {
+      "name": "Decke",
+      "rollen": {
+       "ARC": "pflicht",
+       "BS": "pflicht",
+       "TWP": "pflicht"
+      },
+      "wenn": {
+       "wirt.kategorie": "Geschossdecken"
+      }
+     },
+     {
+      "name": "Groß",
+      "rollen": {
+       "BH": "pflicht"
+      },
+      "wenn": {
+       "flaeche_m2": {
+        "gt": 1.0
+       }
+      },
+      "zusatz": true
+     }
+    ],
+    "rollen": [
+     {
+      "id": "TGA",
+      "name": "TGA"
+     },
+     {
+      "id": "ELT",
+      "name": "Elektro"
+     },
+     {
+      "id": "LAB",
+      "name": "Labor"
+     },
+     {
+      "id": "ARC",
+      "name": "Architektur"
+     },
+     {
+      "id": "TWP",
+      "name": "Tragwerk"
+     },
+     {
+      "id": "BS",
+      "name": "Brandschutz"
+     },
+     {
+      "id": "BH",
+      "name": "Bauherr"
+     }
+    ],
+    "standard": {
+     "ARC": "pflicht"
+    },
+    "status": [
+     {
+      "farbe": "#854F0B",
+      "id": "zurueckgestellt",
+      "name": "Zurückgestellt",
+      "wirkung": "offen"
+     }
+    ],
+    "viewer": {
+     "versatz_mm": [
+      0,
+      0,
+      0
+     ]
+    }
+   }
+  },
+  "kanten": {
+   "ereignisse": [
+    {
+     "art": "status",
+     "daten": {
+      "geometrie_hash": "0808608e615ff699",
+      "wert": "abgelehnt"
+     },
+     "firma": "Architekt XY",
+     "id": "96f48422cab9498a8b48cc2c28bd898e",
+     "name": "A",
+     "objekt": "X:a",
+     "rolle": "ARC",
+     "schema": 1,
+     "seq": 1,
+     "zeit": "2026-11-12T08:00:00.000Z"
+    },
+    {
+     "art": "eingereicht",
+     "daten": {
+      "objekt": {
+       "ebene": "E",
+       "familie": "IGF_Durchbruch_Rechteck",
+       "flaeche_m2": 0.12,
+       "geometrie": {
+        "form": "rechteck",
+        "masse": {
+         "breite": 400,
+         "hoehe": 300
+        },
+        "max": [
+         400,
+         0,
+         300
+        ],
+        "min": [
+         0,
+         -300,
+         0
+        ]
+       },
+       "geometrie_hash": "0808608e615ff699",
+       "gewerke": [
+        "L"
+       ],
+       "groesse": "400×300",
+       "kategorie": "Allgemeines Modell",
+       "modell": "HLS",
+       "nummer": "A",
+       "typ": "Wand",
+       "uk_mm": 0,
+       "wirt": {
+        "kategorie": "Wände",
+        "tragend": true
+       }
+      }
+     },
+     "firma": "IGF",
+     "id": "da9172a0a55844f88c7d3b7b9cc46fd5",
+     "name": "T",
+     "objekt": "X:a",
+     "rolle": "TGA",
+     "schema": 1,
+     "seq": 1,
+     "zeit": "2026-11-12T08:00:00.000Z"
+    },
+    {
+     "art": "eingereicht",
+     "daten": {
+      "objekt": {
+       "ebene": "E",
+       "familie": "IGF_Durchbruch_Rechteck",
+       "flaeche_m2": 1.5,
+       "geometrie": {
+        "form": "rechteck",
+        "masse": {
+         "breite": 1500,
+         "hoehe": 1000
+        },
+        "max": [
+         1500,
+         0,
+         1000
+        ],
+        "min": [
+         0,
+         -300,
+         0
+        ]
+       },
+       "geometrie_hash": "fd7e7e5cb89449fa",
+       "gewerke": [
+        "L"
+       ],
+       "groesse": "1500×1000",
+       "kategorie": "Allgemeines Modell",
+       "modell": "HLS",
+       "nummer": "G",
+       "typ": "Wand",
+       "uk_mm": 0,
+       "wirt": {
+        "kategorie": "Wände",
+        "tragend": false
+       }
+      }
+     },
+     "firma": "IGF",
+     "id": "809933e932204301aedcd0bc23cc7303",
+     "name": "T",
+     "objekt": "X:g",
+     "rolle": "TGA",
+     "schema": 1,
+     "seq": 2,
+     "zeit": "2026-11-12T08:00:00.000Z"
+    },
+    {
+     "art": "geloescht",
+     "daten": {},
+     "firma": "Architekt XY",
+     "id": "f53dec01ef724409a9f8ac0a600ed730",
+     "name": "A",
+     "objekt": "X:a",
+     "rolle": "ARC",
+     "schema": 1,
+     "seq": 2,
+     "zeit": "2026-11-12T08:05:00.000Z"
+    },
+    {
+     "art": "geaendert",
+     "daten": {
+      "objekt": {
+       "ebene": "E",
+       "familie": "IGF_Durchbruch_Rechteck",
+       "flaeche_m2": 0.12,
+       "geometrie": {
+        "form": "rechteck",
+        "masse": {
+         "breite": 400,
+         "hoehe": 300
+        },
+        "max": [
+         400,
+         0,
+         300
+        ],
+        "min": [
+         0,
+         -300,
+         0
+        ]
+       },
+       "geometrie_hash": "0808608e615ff699",
+       "gewerke": [
+        "L"
+       ],
+       "groesse": "400×300",
+       "kategorie": "Allgemeines Modell",
+       "modell": "HLS",
+       "nummer": "A",
+       "typ": "Wand",
+       "uk_mm": 0,
+       "wirt": {
+        "kategorie": "Wände",
+        "tragend": true
+       }
+      }
+     },
+     "firma": "Architekt XY",
+     "id": "67479d2413a64b6cb9729cb89e097841",
+     "name": "A",
+     "objekt": "X:g",
+     "rolle": "ARC",
+     "schema": 1,
+     "seq": 3,
+     "zeit": "2026-11-12T08:06:00.000Z"
+    },
+    {
+     "art": "status",
+     "daten": {
+      "geometrie_hash": "0808608e615ff699",
+      "wert": "freigegeben"
+     },
+     "firma": "Tragwerk Z",
+     "id": "48859feff2f441558510e27267bd0ccc",
+     "name": "W",
+     "objekt": "X:a",
+     "rolle": "TWP",
+     "schema": 1,
+     "seq": 1,
+     "zeit": "2026-11-12T08:07:00.000Z"
+    },
+    {
+     "art": "geaendert",
+     "daten": {
+      "objekt": {
+       "ebene": "E",
+       "familie": "IGF_Durchbruch_Rechteck",
+       "flaeche_m2": 0.12,
+       "geometrie": {
+        "form": "rechteck",
+        "masse": {
+         "breite": 400,
+         "hoehe": 300
+        },
+        "max": [
+         1400,
+         0,
+         300
+        ],
+        "min": [
+         1000,
+         -300,
+         0
+        ]
+       },
+       "geometrie_hash": "edcbcc3c7f6cafd4",
+       "gewerke": [
+        "L"
+       ],
+       "groesse": "400×300",
+       "kategorie": "Allgemeines Modell",
+       "modell": "HLS",
+       "nummer": "A",
+       "typ": "Wand",
+       "uk_mm": 0,
+       "wirt": {
+        "kategorie": "Wände",
+        "tragend": true
+       }
+      }
+     },
+     "firma": "IGF",
+     "id": "0cea2610462f401ebc8c97d53bc92bbe",
+     "name": "T",
+     "objekt": "X:a",
+     "rolle": "TGA",
+     "schema": 1,
+     "seq": 3,
+     "zeit": "2026-11-12T08:10:00.000Z"
+    },
+    {
+     "art": "status",
+     "daten": {
+      "geometrie_hash": "edcbcc3c7f6cafd4",
+      "wert": "freigegeben"
+     },
+     "firma": "Tragwerk Z",
+     "id": "adb75133e57747b8b182e54cf10225de",
+     "name": "W",
+     "objekt": "X:a",
+     "rolle": "TWP",
+     "schema": 1,
+     "seq": 2,
+     "zeit": "2026-11-12T08:11:00.000Z"
+    },
+    {
+     "art": "status",
+     "daten": {
+      "geometrie_hash": "fd7e7e5cb89449fa",
+      "wert": "freigegeben"
+     },
+     "firma": "Architekt XY",
+     "id": "332153f63cde43d48048cb141cdc3552",
+     "name": "A",
+     "objekt": "X:g",
+     "rolle": "ARC",
+     "schema": 1,
+     "seq": 4,
+     "zeit": "2026-11-12T08:12:00.000Z"
+    },
+    {
+     "art": "status",
+     "daten": {
+      "geometrie_hash": "fd7e7e5cb89449fa",
+      "wert": "zurueckgestellt"
+     },
+     "firma": "Bauherr",
+     "id": "85aad0c20ab64b7491a9132c147e2e5a",
+     "name": "B",
+     "objekt": "X:g",
+     "rolle": "BH",
+     "schema": 1,
+     "seq": 1,
+     "zeit": "2026-11-12T08:13:00.000Z"
+    },
+    {
+     "art": "eingereicht",
+     "daten": {
+      "objekt": {
+       "ebene": "E",
+       "familie": "IGF_Durchbruch_Rechteck",
+       "flaeche_m2": 0.12,
+       "geometrie": {
+        "form": "rechteck",
+        "masse": {
+         "breite": 400,
+         "hoehe": 300
+        },
+        "max": [
+         400,
+         0,
+         300
+        ],
+        "min": [
+         0,
+         -300,
+         0
+        ]
+       },
+       "geometrie_hash": "0808608e615ff699",
+       "gewerke": [
+        "L"
+       ],
+       "groesse": "400×300",
+       "kategorie": "Allgemeines Modell",
+       "modell": "HLS",
+       "nummer": "A",
+       "typ": "Wand",
+       "uk_mm": 0,
+       "wirt": {
+        "kategorie": "Wände",
+        "tragend": true
+       }
+      }
+     },
+     "firma": "IGF",
+     "id": "0a73ec22f13346439043360ee4371fde",
+     "name": "T",
+     "objekt": "X:d",
+     "rolle": "TGA",
+     "schema": 1,
+     "seq": 4,
+     "zeit": "2026-11-12T08:14:00.000Z"
+    },
+    {
+     "art": "geloescht",
+     "daten": {},
+     "firma": "IGF",
+     "id": "7ce278fea9af47938877b52a7092c506",
+     "name": "T",
+     "objekt": "X:d",
+     "rolle": "TGA",
+     "schema": 1,
+     "seq": 5,
+     "zeit": "2026-11-12T08:15:00.000Z"
+    },
+    {
+     "art": "eingereicht",
+     "daten": {
+      "objekt": {
+       "ebene": "E",
+       "familie": "IGF_Durchbruch_Rechteck",
+       "flaeche_m2": 0.12,
+       "geometrie": {
+        "form": "rechteck",
+        "masse": {
+         "breite": 400,
+         "hoehe": 300
+        },
+        "max": [
+         400,
+         0,
+         300
+        ],
+        "min": [
+         0,
+         -300,
+         0
+        ]
+       },
+       "geometrie_hash": "0808608e615ff699",
+       "gewerke": [
+        "L"
+       ],
+       "groesse": "400×300",
+       "kategorie": "Allgemeines Modell",
+       "modell": "HLS",
+       "nummer": "A",
+       "typ": "Wand",
+       "uk_mm": 0,
+       "wirt": {
+        "kategorie": "Wände",
+        "tragend": true
+       }
+      }
+     },
+     "firma": "IGF",
+     "id": "1bf9c145d301437b98fe988bacbe0188",
+     "name": "T",
+     "objekt": "X:e",
+     "rolle": "TGA",
+     "schema": 1,
+     "seq": 6,
+     "zeit": "2026-11-12T08:16:00.000Z"
+    },
+    {
+     "art": "geloescht",
+     "daten": {},
+     "firma": "IGF",
+     "id": "aedc2cd489824ac38f29bab3a084b8bb",
+     "name": "T",
+     "objekt": "X:e",
+     "rolle": "TGA",
+     "schema": 1,
+     "seq": 7,
+     "zeit": "2026-11-12T08:17:00.000Z"
+    },
+    {
+     "art": "eingereicht",
+     "daten": {
+      "objekt": {
+       "ebene": "E",
+       "familie": "IGF_Durchbruch_Rechteck",
+       "flaeche_m2": 0.12,
+       "geometrie": {
+        "form": "rechteck",
+        "masse": {
+         "breite": 400,
+         "hoehe": 300
+        },
+        "max": [
+         1400,
+         0,
+         300
+        ],
+        "min": [
+         1000,
+         -300,
+         0
+        ]
+       },
+       "geometrie_hash": "edcbcc3c7f6cafd4",
+       "gewerke": [
+        "L"
+       ],
+       "groesse": "400×300",
+       "kategorie": "Allgemeines Modell",
+       "modell": "HLS",
+       "nummer": "A",
+       "typ": "Wand",
+       "uk_mm": 0,
+       "wirt": {
+        "kategorie": "Wände",
+        "tragend": true
+       }
+      }
+     },
+     "firma": "IGF",
+     "id": "b767c1d5fe8847868a2765b16a9d66ee",
+     "name": "T",
+     "objekt": "X:e",
+     "rolle": "TGA",
+     "schema": 1,
+     "seq": 8,
+     "zeit": "2026-11-12T08:18:00.000Z"
+    },
+    {
+     "art": "status",
+     "daten": {
+      "geometrie_hash": "edcbcc3c7f6cafd4",
+      "wert": "abgelehnt"
+     },
+     "firma": "Architekt XY",
+     "id": "8bada54ca5154b179d8e4a4abd0608ac",
+     "name": "A",
+     "objekt": "X:e",
+     "rolle": "ARC",
+     "schema": 1,
+     "seq": 5,
+     "zeit": "2026-11-12T08:19:00.000Z"
+    },
+    {
+     "art": "modell_veroeffentlicht",
+     "daten": {
+      "datei": "x",
+      "hash": "1",
+      "modell": "ARC"
+     },
+     "firma": "Architekt XY",
+     "id": "7b297f387bee49228e5e9c986f5ee2f9",
+     "name": "A",
+     "objekt": null,
+     "rolle": "ARC",
+     "schema": 1,
+     "seq": 6,
+     "zeit": "2026-11-12T08:19:00.000Z"
+    },
+    {
+     "art": "modell_veroeffentlicht",
+     "daten": {
+      "datei": "y",
+      "hash": "2",
+      "modell": "ARC"
+     },
+     "firma": "Tragwerk Z",
+     "id": "a4588b6924564360b4603045dbde1090",
+     "name": "W",
+     "objekt": null,
+     "rolle": "TWP",
+     "schema": 1,
+     "seq": 3,
+     "zeit": "2026-11-12T08:20:00.000Z"
+    }
+   ],
+   "erwartet": {
+    "gesamtstatus": {
+     "X:a": {
+      "geaendert": true,
+      "pflicht_erfuellt": 1,
+      "pflicht_gesamt": 2,
+      "rollen": {
+       "ARC": {
+        "status": null,
+        "stufe": "pflicht",
+        "veraltet": true,
+        "wirkung": null
+       },
+       "TGA": {
+        "status": null,
+        "stufe": "info",
+        "veraltet": false,
+        "wirkung": null
+       },
+       "TWP": {
+        "status": "freigegeben",
+        "stufe": "pflicht",
+        "veraltet": false,
+        "wirkung": "freigabe"
+       }
+      },
+      "status": "in_pruefung",
+      "wirkung": "offen"
+     },
+     "X:e": {
+      "geaendert": false,
+      "pflicht_erfuellt": 0,
+      "pflicht_gesamt": 2,
+      "rollen": {
+       "ARC": {
+        "status": "abgelehnt",
+        "stufe": "pflicht",
+        "veraltet": false,
+        "wirkung": "blockiert"
+       },
+       "TGA": {
+        "status": null,
+        "stufe": "info",
+        "veraltet": false,
+        "wirkung": null
+       },
+       "TWP": {
+        "status": null,
+        "stufe": "pflicht",
+        "veraltet": false,
+        "wirkung": null
+       }
+      },
+      "status": "abgelehnt",
+      "wirkung": "blockiert"
+     },
+     "X:g": {
+      "geaendert": false,
+      "pflicht_erfuellt": 1,
+      "pflicht_gesamt": 2,
+      "rollen": {
+       "ARC": {
+        "status": "freigegeben",
+        "stufe": "pflicht",
+        "veraltet": false,
+        "wirkung": "freigabe"
+       },
+       "BH": {
+        "status": "zurueckgestellt",
+        "stufe": "pflicht",
+        "veraltet": false,
+        "wirkung": "offen"
+       }
+      },
+      "status": "in_pruefung",
+      "wirkung": "offen"
+     }
+    },
+    "ignoriert": 3,
+    "modelle": {
+     "ARC": "1"
+    },
+    "objekte": [
+     "X:a",
+     "X:e",
+     "X:g"
+    ],
+    "runden": [],
+    "verlauf_laengen": {
+     "X:a": 5,
+     "X:e": 4,
+     "X:g": 3
+    },
+    "wartet_auf_firma": {
+     "Architekt XY": [],
+     "Bauherr": [],
+     "IGF": [
+      "X:e"
+     ],
+     "Tragwerk Z": []
+    },
+    "wartet_auf_rolle": {
+     "ARC": [
+      "X:a"
+     ],
+     "BH": [],
+     "BS": [],
+     "ELT": [],
+     "LAB": [],
+     "TGA": [],
+     "TWP": [
+      "X:e"
+     ]
+    }
+   },
+   "projekt": {
+    "name": "Demo – Schule (That-Open-Beispiel)",
+    "regeln": [
+     {
+      "name": "Wand tragend",
+      "rollen": {
+       "ARC": "pflicht",
+       "TGA": "info",
+       "TWP": "pflicht"
+      },
+      "wenn": {
+       "wirt.kategorie": "Wände",
+       "wirt.tragend": true
+      }
+     },
+     {
+      "name": "Decke",
+      "rollen": {
+       "ARC": "pflicht",
+       "BS": "pflicht",
+       "TWP": "pflicht"
+      },
+      "wenn": {
+       "wirt.kategorie": "Geschossdecken"
+      }
+     },
+     {
+      "name": "Groß",
+      "rollen": {
+       "BH": "pflicht"
+      },
+      "wenn": {
+       "flaeche_m2": {
+        "gt": 1.0
+       }
+      },
+      "zusatz": true
+     }
+    ],
+    "rollen": [
+     {
+      "id": "TGA",
+      "name": "TGA"
+     },
+     {
+      "id": "ELT",
+      "name": "Elektro"
+     },
+     {
+      "id": "LAB",
+      "name": "Labor"
+     },
+     {
+      "id": "ARC",
+      "name": "Architektur"
+     },
+     {
+      "id": "TWP",
+      "name": "Tragwerk"
+     },
+     {
+      "id": "BS",
+      "name": "Brandschutz"
+     },
+     {
+      "id": "BH",
+      "name": "Bauherr"
+     }
+    ],
+    "standard": {
+     "ARC": "pflicht"
+    },
+    "status": [
+     {
+      "farbe": "#854F0B",
+      "id": "zurueckgestellt",
+      "name": "Zurückgestellt",
+      "wirkung": "offen"
+     }
+    ],
+    "viewer": {
+     "versatz_mm": [
+      0,
+      0,
+      0
+     ]
+    }
+   }
+  }
+ }
+}

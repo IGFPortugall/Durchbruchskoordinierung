@@ -221,3 +221,26 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# pyRevit-Bibliothek gehört dazu (die Python-Vorlage oben sperrt sonst alle lib/-Ordner)
+!pyrevit/DBK.extension/lib/
+
+# Erzeugte Demo-Daten (py werkzeuge/demo_erzeugen.py) und lokale Testordner
+testdaten/
+
+# NIE Projektdaten ins Repository: Projektordner, Modelle, Ereignisse, Prüfsets
+projekt.json
+ereignisse/
+modelle/
+plaene/
+pruefsets/
+*.ifc
+*.frag
+*.rvt
+*.rfa
+*.bcf
+*.bcfzip
+einstellungen.json
+
+# Lokale Claude-Einstellungen
+.claude/settings.local.json

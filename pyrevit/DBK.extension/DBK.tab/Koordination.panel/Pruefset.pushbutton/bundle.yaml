@@ -1,0 +1,6 @@
+title: Prüfset
+tooltip: Festlegen, welche Familien und Typen Ihre Firma zur Prüfung einreicht (Baum Kategorie → Familie → Typ).
+author: IGF
+context: doc-project
+engine:
+  clean: true

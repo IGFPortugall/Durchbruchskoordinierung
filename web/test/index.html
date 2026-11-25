@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8"><title>Kern-Tests</title>
+<style>body{font:14px system-ui,sans-serif;margin:24px}.ok{color:#3B6D11}.fehler{color:#A32D2D}pre{white-space:pre-wrap;font-size:12px}</style>
+</head><body>
+<h1>Abgleich Statuslogik Python ↔ JavaScript</h1>
+<div id="aus">läuft …</div>
+<script type="module">
+import { Projekt, berechne, istGueltig, ordnername } from "../app/kern.js";
+
+function kanon(x) {
+  if (Array.isArray(x)) return x.map(kanon);
+  if (x && typeof x === "object") return Object.fromEntries(Object.keys(x).sort().map((k) => [k, kanon(x[k])]));
+  return x;
+}
+const gleich = (a, b) => JSON.stringify(kanon(a)) === JSON.stringify(kanon(b));
+
+const fx = await (await fetch("./fixtures.json")).json();
+const zeilen = [];
+let fehler = 0;
+function pruefe(name, ist, soll) {
+  const ok = gleich(ist, soll);
+  if (!ok) fehler++;
+  zeilen.push(`<div class="${ok ? "ok" : "fehler"}">${ok ? "✓" : "✗"} ${name}</div>` +
+    (ok ? "" : `<pre>ist:  ${JSON.stringify(kanon(ist))}\nsoll: ${JSON.stringify(kanon(soll))}</pre>`));
+}
+
+for (const [szenario, s] of Object.entries(fx.szenarien)) {
+  const p = new Projekt(s.projekt);
+  const z = berechne(s.ereignisse, p);
+  const e = s.erwartet;
+  pruefe(`${szenario}: alle Ereignisse gültig`, s.ereignisse.every(istGueltig), true);
+  pruefe(`${szenario}: aktive Objekte`, [...z.objekte.keys()].sort(), e.objekte);
+  for (const oid of e.objekte) pruefe(`${szenario}: Gesamtstatus ${oid}`, z.gesamtstatus(oid), e.gesamtstatus[oid]);
+  for (const [r, soll] of Object.entries(e.wartet_auf_rolle)) pruefe(`${szenario}: wartet auf Rolle ${r}`, z.wartetAuf({ rolle: r }), soll);
+  for (const [f, soll] of Object.entries(e.wartet_auf_firma)) pruefe(`${szenario}: wartet auf Firma ${f}`, z.wartetAuf({ firma: f }), soll);
+  pruefe(`${szenario}: Modelle`, Object.fromEntries(Object.entries(z.modelle).map(([m, v]) => [m, v.aktuell.hash])), e.modelle);
+  pruefe(`${szenario}: ignoriert`, z.ignoriert.length, e.ignoriert);
+  pruefe(`${szenario}: Verlauf`, Object.fromEntries([...z.objekte].map(([k, o]) => [k, o.verlauf.length])), e.verlauf_laengen);
+  pruefe(`${szenario}: Runden`, Object.keys(z.runden).sort(), e.runden);
+}
+pruefe("ordnername", ["Architekt XY", "IGF", "Büro/Müller & Co."].map(ordnername), ["Architekt_XY", "IGF", "Büro_Müller_Co"]);
+
+document.getElementById("aus").innerHTML =
+  `<p class="${fehler ? "fehler" : "ok"}"><b>${fehler ? fehler + " Abweichung(en)" : "Alle " + zeilen.length + " Prüfungen bestanden"}</b></p>` + zeilen.join("");
+window.__ergebnis = { fehler, anzahl: zeilen.length };
+</script></body></html>

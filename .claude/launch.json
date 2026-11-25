@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "dbk-web",
+      "runtimeExecutable": "py",
+      "runtimeArgs": ["werkzeuge/devserver.py", "--projekt", "testdaten/demo", "--port", "8765"],
+      "port": 8765
+    },
+    {
+      "name": "dbk-live",
+      "runtimeExecutable": "py",
+      "runtimeArgs": ["werkzeuge/devserver.py", "--projekt", "testdaten/live", "--port", "8766"],
+      "port": 8766
+    }
+  ]
+}
