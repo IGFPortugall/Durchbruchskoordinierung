@@ -33,26 +33,22 @@
     <button id="schnitt-weg" title="Alle Schnitte entfernen">Schnitte <span id="schnitt-anzahl">0</span> ×</button>
     <div class="trenner"></div>
     <button id="alles" title="Alles zeigen">Alles zeigen</button>
-    <button id="einstellungen" title="Modelle ein-/ausblenden, Navigation, Schnitte, Beschriftung">Ansicht ⚙</button>
+    <button id="einstellungen" title="Schnitte, Navigation, Beschriftung">Ansicht ⚙</button>
   </div>
-  <button id="modell-neu" title="IFC-Datei (z. B. Architektur oder Tragwerk) in den Projektordner laden. Sie wird einmalig in Fragments umgewandelt und ist dann für alle sichtbar.">Modell hinzufügen</button>
   <button id="benutzer" class="benutzer" title="Name, Firma und Rolle ändern"></button>
 </header>
 
 <main class="haupt">
-  <aside class="links">
-    <input id="suche" type="search" placeholder="Nummer oder Text suchen">
-    <div class="filter">
-      <select id="filter-status" title="Nach Gesamtstatus filtern">
-        <option value="">Alle Status</option>
-        <option value="offen">In Prüfung</option>
-        <option value="blockiert">Abgelehnt</option>
-        <option value="freigabe">Freigegeben</option>
-      </select>
-      <label title="Nur Durchbrüche, bei denen Sie als Nächstes etwas tun müssen"><input id="filter-ich" type="checkbox" checked> Wartet auf mich</label>
-    </div>
-    <div id="kennzahlen" class="kennzahlen"></div>
-    <div id="liste" class="liste"></div>
+  <aside class="inhalte">
+    <div class="i-kopf">Modelle</div>
+    <div id="i-modelle" class="i-liste"></div>
+    <div class="i-kopf">Durchbrüche · Stände</div>
+    <div id="i-staende" class="i-liste"></div>
+    <label id="i-laden" class="i-laden" tabindex="0"
+           title="IFC oder FBX (z. B. Architektur, Tragwerk) in den Projektordner laden – danach für alle sichtbar. Auch per Ziehen und Ablegen.">
+      <input id="i-datei" type="file" accept=".ifc,.fbx" hidden>
+      <b>+ Modell laden</b><span>IFC oder FBX hierher ziehen oder klicken</span>
+    </label>
   </aside>
 
   <section class="mitte">
@@ -66,7 +62,23 @@
     </div>
   </section>
 
-  <aside id="detail" class="rechts"></aside>
+  <aside class="rechts">
+    <div class="r-liste">
+      <input id="suche" type="search" placeholder="Nummer oder Text suchen">
+      <div class="filter">
+        <select id="filter-status" title="Nach Gesamtstatus filtern">
+          <option value="">Alle Status</option>
+          <option value="offen">In Prüfung</option>
+          <option value="blockiert">Abgelehnt</option>
+          <option value="freigabe">Freigegeben</option>
+        </select>
+        <label title="Nur Durchbrüche, bei denen Sie als Nächstes etwas tun müssen"><input id="filter-ich" type="checkbox" checked> Wartet auf mich</label>
+      </div>
+      <div id="kennzahlen" class="kennzahlen"></div>
+      <div id="liste" class="liste"></div>
+    </div>
+    <div id="detail" class="r-detail"></div>
+  </aside>
 </main>
 
 <div id="dialog" class="dialog-huelle" hidden></div>

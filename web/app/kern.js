@@ -15,7 +15,7 @@ export const IN_PRUEFUNG = "in_pruefung";
 export const FREIGEGEBEN = "freigegeben";
 
 export const ARTEN = ["pruefrunde_gestartet", "eingereicht", "geaendert", "geloescht",
-  "status", "nachricht", "modell_veroeffentlicht"];
+  "status", "nachricht", "modell_veroeffentlicht", "modell_ausrichtung"];
 const PFLICHTFELDER = ["schema", "id", "zeit", "seq", "firma", "name", "rolle", "art", "objekt", "daten"];
 
 export const STANDARD_STATUS = [
@@ -162,6 +162,7 @@ export class ObjektZustand {
     this.erstellerRolle = null;
     this.geloescht = false;
     this.runden = [];
+    this.stand = null;
     this.letzteEinreichung = null;
     this.entscheidungen = {};
     this.verlauf = [];
@@ -267,11 +268,17 @@ export function berechne(ereignisse, projekt) {
     }
     if (art === "modell_veroeffentlicht") {
       const d = { ...e.daten, firma: e.firma, veroeffentlicht: e.zeit };
-      if (!z.modelle[d.modell]) z.modelle[d.modell] = { besitzer: e.firma, aktuell: null, versionen: [] };
+      if (!z.modelle[d.modell]) z.modelle[d.modell] = { besitzer: e.firma, aktuell: null, versionen: [], ausrichtung: null };
       const m = z.modelle[d.modell];
       if (m.besitzer !== e.firma) { z.ignoriert.push(e); continue; }
       m.versionen.push(d);
       m.aktuell = d;
+      continue;
+    }
+    if (art === "modell_ausrichtung") {
+      const m = z.modelle[e.daten.modell];
+      if (!m || m.besitzer !== e.firma) { z.ignoriert.push(e); continue; }
+      m.ausrichtung = { ...e.daten };
       continue;
     }
     let o = alle.get(e.objekt);
@@ -292,6 +299,7 @@ export function berechne(ereignisse, projekt) {
           o.letzteEinreichung = schluessel(e);
           const runde = e.daten.runde;
           if (runde && !o.runden.includes(runde)) o.runden.push(runde);
+          if (e.daten.stand) o.stand = e.daten.stand;
         }
       }
       o.verlauf.push(e);

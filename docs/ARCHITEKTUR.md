@@ -167,17 +167,21 @@ modelle/
   TWP/ …
 ```
 
-**Veröffentlichen aus Revit** (Button „Modell veröffentlichen“ in der pyRevit-Extension):
-1. IFC-Export mit festen Projekt-Einstellungen (gleiche IFC-GUIDs, Projektkoordinaten).
-2. Umwandlung IFC → Fragments mit dem offiziellen Konverter von That Open
-   (`@thatopen/fragments`, kleines Kommandozeilen-Programm, wird mitgeliefert).
-3. Optional: beschriftete Grundrisse je Geschoss als Plan-Ebene exportieren.
-4. Dateien in `modelle/<Modell>/` ablegen und Ereignis `modell_veroeffentlicht` schreiben.
+**Veröffentlichen aus Revit** (Button „Modelle zum Viewer“ in der pyRevit-Extension):
+1. Je Zeile eine 3D-Ansicht; Durchbrüche und – je nach Einstellung – Verknüpfungen bzw. das eigene
+   Modell werden in einer zurückgerollten Transaktion ausgeblendet.
+2. Export als **FBX** (schnell, Revit-eigen; dazu `<Hash>.json` mit Kategorie/Familie/Typ/Ebene/System
+   je Bauteil und Bounding Box in mm – daraus richtet der Viewer das FBX aus) oder als **IFC**
+   (langsam, mit Psets; der Browser wandelt beim ersten Öffnen in Fragments um und legt die `.frag` ab).
+3. Dateien in `modelle/<Modell>/` ablegen und Ereignis `modell_veroeffentlicht` schreiben.
+4. Die Liste der Exporte steht im Prüfset der Firma unter `viewer_exporte`; unveränderte Modelle
+   (gleiche Revit-Dokumentversion, auch der Verknüpfungen) werden übersprungen.
 
-Ein direkter Fragments-Export aus Revit ohne IFC-Zwischenschritt wäre schneller, ist aber
-von That Open (noch) nicht als fertige Lösung bekannt – mit Antonio klären.
+**Ohne Revit**: IFC oder FBX im Browser hochladen (Feld „+ Modell laden“) → liegt danach genauso im Ordner.
 
-**Ohne Revit**: IFC im Browser hochladen → der Browser wandelt es um und legt die `.frag` genauso ab.
+**Ausrichtung**: Passt ein Modell nicht zu den anderen, wird es im Viewer verschoben/gedreht.
+Jeder kann das lokal (nur im eigenen Browser); der Besitzer des Modells kann die Lage mit
+`modell_ausrichtung` für alle festschreiben.
 
 **Versionen**:
 - Welche Version aktuell ist, steht im Ereignis `modell_veroeffentlicht` – nicht im Dateinamen.

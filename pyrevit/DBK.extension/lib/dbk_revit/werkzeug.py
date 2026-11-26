@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
-"""Durchbruchskoordination – ein Werkzeug mit Reitern (Projekt · Durchbrüche · Modell · Einreichen).
+"""Durchbruchskoordination – ein Werkzeug mit Reitern (Projekt · Durchbrüche · Einreichen).
+
+Modelle für den Viewer exportiert der eigene Knopf „Modelle zum Viewer“ (modelle.py).
 
 Nicht-modal: das Fenster bleibt neben Revit offen. Alles, was die Revit-API braucht,
 läuft über ein ExternalEvent (Warteschlange). Der Viewer im Browser ist der Prüf-Manager.
@@ -18,7 +20,7 @@ from System.Windows import Thickness, Visibility
 from System.Windows.Controls import CheckBox, TextBlock, TreeViewItem
 from System.Windows.Input import Cursors
 from System.Windows.Media import Brushes, SolidColorBrush, ColorConverter
-from Autodesk.Revit import UI
+from Autodesk.Revit import DB, UI
 from pyrevit import forms
 
 from dbk_core import Ablage
@@ -76,14 +78,13 @@ class Werkzeug(forms.WPFWindow):
         self.pruefset = {"typen": []}
         self.plan = None
         self.koord = {}            # oid -> Wirkung (offen/blockiert/freigabe) der Koordination
-        self.modelle_stand = {}    # Kürzel -> letzter veröffentlichter Stand
         self.baum = {}
         self.alle_ebenen = [e["name"] for e in sammeln.alle_ebenen(doc)]
         self.geschoss_vorschlag = sammeln.geschoss_vorschlag(doc)
         self.ebenen_doc = list(self.alle_ebenen)
         self.vorlagen, self.aktive_vorlage = [], ""
-        self.modell_vorlagen = []
-        self.modell_auswahl = None
+        self.ansicht_mitglieder = {}   # Vorlagen-ID -> Objekt-IDs, die in ihrer 3D-Ansicht sichtbar sind
+        self.ansichten_3d = sorted(v.Name for v in DB.FilteredElementCollector(doc).OfClass(DB.View3D) if not v.IsTemplate)
         self._liste_boxen = {}
         self._familien_boxen = []
         self._handler = _Warteschlange(self)
@@ -126,18 +127,15 @@ class Werkzeug(forms.WPFWindow):
         self.d_keine.Click += lambda s, a: self._setzen(lambda oid: False)
         self.d_markierung.Click += lambda s, a: self._markierung()
         self.d_zeigen.Click += lambda s, a: self._auswahl_zeigen()
-        self.m_liste.SelectionChanged += lambda s, a: self._modell_gewaehlt()
-        self.m_neu.Click += lambda s, a: self._modell_neu()
-        self.m_weg.Click += lambda s, a: self._modell_weg()
-        self.m_speichern.Click += lambda s, a: self._modell_speichern()
-        self.m_ansicht.Click += lambda s, a: self._modell_ansicht()
         self.e_los.Click += lambda s, a: self.einreichen()
-        self.m_aktualisieren.Click += lambda s, a: self.modell_aktualisieren()
-        self.m_format.SelectionChanged += lambda s, a: self._format_info()
+        self.d_q_filter.Click += lambda s, a: self._quelle_setzen("filter")
+        self.d_q_ansicht.Click += lambda s, a: self._quelle_setzen("ansicht")
+        self.d_ansicht.SelectionChanged += lambda s, a: self._ansicht_gewaehlt()
+        self.d_ansicht_lesen.Click += lambda s, a: self._mitglieder_lesen_auftrag()
+        self.d_ansicht_neu.Click += lambda s, a: self._stand_ansicht_anlegen()
         self.p_geschoss_vorschlag.Click += lambda s, a: self._geschosse_setzen(set(self.geschoss_vorschlag))
         self.d_filter.ItemsSource = FILTER
         self.d_filter.SelectedIndex = 0
-        self.m_format.ItemsSource = ["FBX – schnell (empfohlen)", "IFC – mit Eigenschaften"]
 
     def auftrag(self, titel, f):
         self._handler.auftraege.append((titel, f))
@@ -172,7 +170,6 @@ class Werkzeug(forms.WPFWindow):
     def _reiter_sichtbarkeit(self):
         bereit = self._bereit()
         self.t_durch.Visibility = Visibility.Visible if (bereit and self._ersteller()) else Visibility.Collapsed
-        self.t_modell.Visibility = Visibility.Visible if bereit else Visibility.Collapsed
         self.t_einreichen.Visibility = Visibility.Visible if (bereit and self._ersteller()) else Visibility.Collapsed
         self.h_projekt.Text = ("✓  Projekt" if bereit else "Projekt")
         self.h_einreichen.Text = "Einreichen" if self._ersteller() else "Veröffentlichen"
@@ -184,7 +181,7 @@ class Werkzeug(forms.WPFWindow):
             self.untertitel.Text = "Planen · auswählen · einreichen"
 
     def _sichtbare_reiter(self):
-        return [t for t in (self.t_projekt, self.t_durch, self.t_modell, self.t_einreichen)
+        return [t for t in (self.t_projekt, self.t_durch, self.t_einreichen)
                 if t.Visibility == Visibility.Visible]
 
     def weiter(self):
@@ -221,10 +218,6 @@ class Werkzeug(forms.WPFWindow):
                 self.tabs.SelectedItem = self.t_einreichen
                 self.melden("Hinweis: %d Durchbrüche sind ausgewählt und noch nicht eingereicht." % len(self._gewaehlt()))
                 return
-        if not self.modell_vorlagen:
-            self.tabs.SelectedItem = self.t_modell
-            self.melden("Hinweis: noch keine Modell-Vorlage – mit „+ Vorlage“ anlegen.")
-            return
         self.melden("Keine offenen Hinweise.")
 
     # ================================================================ Reiter 1: Projekt
@@ -332,7 +325,7 @@ class Werkzeug(forms.WPFWindow):
         self._reiter_sichtbarkeit()
         self._daten_laden()
         self.einlesen()
-        self.tabs.SelectedItem = self.t_durch if self._ersteller() else self.t_modell
+        self.tabs.SelectedItem = self.t_durch if self._ersteller() else self.t_projekt
         self.melden("Gespeichert.")
 
     # ================================================================ Daten
@@ -343,17 +336,6 @@ class Werkzeug(forms.WPFWindow):
         gs = set(self.pruefset.get("geschosse") or [])
         self.ebenen_doc = [n for n in self.alle_ebenen if n in gs] or list(self.alle_ebenen)
         self.vorlagen, self.aktive_vorlage = pakete.vorlagen_laden(ordner, firma)
-        self.modell_vorlagen = [p for p in pakete.laden(ordner, firma) if p["art"] == pakete.TGA]
-        if not self.modell_vorlagen:
-            gewerke = [g[0] for g in pakete.gewerke_fuer(self.einst["rolle"])]
-            name = "TGA ohne Durchbrüche" if self._ersteller() else "%s gesamt" % self._rollenname(self.einst["rolle"])
-            self.modell_vorlagen = [pakete.neu(pakete.TGA, name, self.einst["modellkuerzel"], gewerke)]
-            self._modelle_sichern()
-
-    def _modelle_sichern(self):
-        ordner, firma = self._ordner()
-        alle = [p for p in pakete.laden(ordner, firma) if p["art"] != pakete.TGA] + self.modell_vorlagen
-        pakete.speichern(ordner, firma, alle)
 
     def einlesen(self):
         def f(uiapp):
@@ -362,9 +344,9 @@ class Werkzeug(forms.WPFWindow):
             self.pruefset = sammeln.pruefset_laden(ordner, firma)
             self.baum = sammeln.baum(doc) if self._ersteller() else {}
             self.plan = aktionen.einreichen_planen(doc, self.einst, self.pruefset)
+            self._mitglieder_lesen(doc)
             ablage, z = aktionen.zustand_laden(ordner)
             self.koord = dict((oid, z.gesamtstatus(oid)["wirkung"]) for oid in z.objekte)
-            self.modelle_stand = dict((k, v["aktuell"]) for k, v in z.modelle.items())
             self.alles_zeichnen()
             if self._ersteller():
                 self.melden("%d Durchbrüche gelesen: %d neu, %d verschoben/geändert, %d unverändert, %d abgelehnt."
@@ -378,7 +360,6 @@ class Werkzeug(forms.WPFWindow):
         if self._ersteller():
             self.familien_zeichnen()
             self.vorlagen_zeichnen()
-        self.modelle_zeichnen()
         self.zusammenfassung_zeichnen()
 
     # ================================================================ Reiter 2: Durchbrüche
@@ -444,8 +425,113 @@ class Werkzeug(forms.WPFWindow):
         auswahl = (v.get("ebenen") or [None])[0] if v else None
         self.d_ebene.SelectedItem = auswahl if auswahl in ebenen else "Alle Ebenen"
         self.d_vorlage_speichern.IsEnabled = self.d_vorlage_weg.IsEnabled = v is not None
+        ansicht = bool(v and v.get("quelle") == "ansicht")
+        self.d_quelle_box.IsEnabled = v is not None
+        self.d_q_filter.IsChecked = not ansicht
+        self.d_q_ansicht.IsChecked = ansicht
+        self.d_ansicht.ItemsSource = self.ansichten_3d
+        self.d_ansicht.SelectedItem = v.get("ansicht") if (v and v.get("ansicht") in self.ansichten_3d) else None
+        self.d_ansicht.IsEnabled = ansicht
+        self.d_ebene.IsEnabled = not ansicht
         self._vorlage_sperre = False
         self.liste_zeichnen()
+
+    # ---------------------------------------------------------------- Stand über 3D-Ansicht
+
+    def _quelle_setzen(self, quelle):
+        v = self._vorlage()
+        if v is None:
+            return
+        v["quelle"] = quelle
+        if quelle == "ansicht" and not v.get("ansicht"):
+            name = "DBK Stand – %s" % v["name"]
+            if name in self.ansichten_3d:
+                v["ansicht"] = name
+        pakete.vorlagen_speichern(self.einst["projektordner"], self.einst["firma"], self.vorlagen, self.aktive_vorlage)
+        self.vorlagen_zeichnen()
+        if quelle == "ansicht":
+            if v.get("ansicht"):
+                self._mitglieder_lesen_auftrag()
+            else:
+                self.melden("3D-Ansicht wählen oder mit „Ansicht anlegen“ eine neue erzeugen.")
+
+    def _ansicht_gewaehlt(self):
+        if getattr(self, "_vorlage_sperre", False):
+            return
+        v = self._vorlage()
+        if v is None or self.d_ansicht.SelectedItem is None:
+            return
+        v["ansicht"] = self.d_ansicht.SelectedItem
+        pakete.vorlagen_speichern(self.einst["projektordner"], self.einst["firma"], self.vorlagen, self.aktive_vorlage)
+        self._mitglieder_lesen_auftrag()
+
+    def _mitglieder_lesen(self, doc):
+        """Für Stände mit 3D-Ansicht: welche Durchbrüche sind dort sichtbar?"""
+        if self.plan is None:
+            return
+        nach_element = dict((eid(i), o) for o, i in self.plan.element_ids.items())
+        ansichten = dict((v.Name, v) for v in DB.FilteredElementCollector(doc).OfClass(DB.View3D) if not v.IsTemplate)
+        self.ansichten_3d = sorted(ansichten)
+        for v in self.vorlagen:
+            if v.get("quelle") != "ansicht" or v.get("ansicht") not in ansichten:
+                continue
+            sichtbar = set()
+            for e in DB.FilteredElementCollector(doc, ansichten[v["ansicht"]].Id).WhereElementIsNotElementType():
+                o = nach_element.get(eid(e.Id))
+                if o is not None:
+                    sichtbar.add(o)
+            self.ansicht_mitglieder[v["id"]] = sichtbar
+
+    def _mitglieder_lesen_auftrag(self):
+        def f(uiapp):
+            self._mitglieder_lesen(uiapp.ActiveUIDocument.Document)
+            v = self._vorlage()
+            self.vorlagen_zeichnen()
+            if v is not None and v.get("quelle") == "ansicht":
+                self.melden("„%s“: %d Durchbrüche in der Ansicht sichtbar." % (v.get("ansicht"), len(self.ansicht_mitglieder.get(v["id"], ()))))
+        self.auftrag("3D-Ansicht lesen", f)
+
+    def _stand_ansicht_anlegen(self):
+        v = self._vorlage()
+        if v is None or self.plan is None:
+            self.melden("Bitte zuerst eine Auswahlvorlage (Stand) wählen oder anlegen.", fehler=True)
+            return
+        kandidaten = self._kandidaten() or pakete.in_vorlage(v, self.plan)
+        sichtbar = [self.plan.element_ids[o] for o in kandidaten if o not in self._aus()]
+        alle = [self.plan.element_ids[o] for o in self.plan.objekte]
+        name = "DBK Stand – %s" % v["name"]
+
+        def f(uiapp):
+            uidoc = uiapp.ActiveUIDocument
+            doc = uidoc.Document
+            kats = set(eid(doc.GetElement(i).Category.Id) for i in alle)
+            behalten = set(eid(i) for i in sichtbar)
+            with DB.Transaction(doc, "DBK: Stand-Ansicht") as t:
+                t.Start()
+                ansicht = next((x for x in DB.FilteredElementCollector(doc).OfClass(DB.View3D)
+                                if not x.IsTemplate and x.Name == name), None)
+                if ansicht is None:
+                    vft = next(x for x in DB.FilteredElementCollector(doc).OfClass(DB.ViewFamilyType)
+                               if x.ViewFamily == DB.ViewFamily.ThreeDimensional)
+                    ansicht = DB.View3D.CreateIsometric(doc, vft.Id)
+                    ansicht.Name = name
+                pakete._grundeinstellung(doc, ansicht, kats)
+                elemente = [e for e in DB.FilteredElementCollector(doc).WhereElementIsNotElementType()
+                            if e.Category is not None and eid(e.Category.Id) in kats and e.CanBeHidden(ansicht)]
+                versteckt = [e.Id for e in elemente if e.IsHidden(ansicht)]
+                if versteckt:
+                    ansicht.UnhideElements(sammeln._liste(versteckt))
+                weg = [e.Id for e in elemente if eid(e.Id) not in behalten]
+                if weg:
+                    ansicht.HideElements(sammeln._liste(weg))
+                t.Commit()
+            uidoc.ActiveView = ansicht
+            v["quelle"], v["ansicht"] = "ansicht", name
+            pakete.vorlagen_speichern(self.einst["projektordner"], self.einst["firma"], self.vorlagen, self.aktive_vorlage)
+            self._mitglieder_lesen(doc)
+            self.vorlagen_zeichnen()
+            self.melden("„%s“ angelegt: %d Durchbrüche. In Revit aus-/einblenden, dann „Neu lesen“." % (name, len(sichtbar)))
+        self.auftrag("Stand-Ansicht anlegen", f)
 
     def _vorlage_gewechselt(self):
         if getattr(self, "_vorlage_sperre", False):
@@ -523,8 +609,12 @@ class Werkzeug(forms.WPFWindow):
         """Objekt-IDs der aktuellen Vorlage/Ebene."""
         if self.plan is None:
             return []
+        v = self._vorlage()
+        if v is not None and v.get("quelle") == "ansicht":
+            mitglieder = self.ansicht_mitglieder.get(v["id"], set())
+            return [o for o in self.plan.objekte if o in mitglieder]
         ebene = self.d_ebene.SelectedItem if self.d_ebene.SelectedIndex > 0 else None
-        oids = pakete.in_vorlage(self._vorlage(), self.plan)
+        oids = pakete.in_vorlage(v, self.plan)
         return [o for o in oids if not ebene or self.plan.objekte[o].get("ebene") == ebene]
 
     def _waehlbar(self, oid):
@@ -661,122 +751,6 @@ class Werkzeug(forms.WPFWindow):
             self.melden("Kontrollansicht: orange = geht in die nächste Runde, grau = schon geschickt oder zurückgehalten.")
         self.auftrag("Auswahl in Revit zeigen", f)
 
-    # ================================================================ Reiter 3: Modell
-
-    def modelle_zeichnen(self):
-        zeilen = []
-        for p in self.modell_vorlagen:
-            stand = self.modelle_stand.get(p["kuerzel"])
-            zeilen.append(_Zeile(p, "%s %s   →  %s   ·  %s  ·  %s" % (
-                "☑" if p.get("aktiv", True) else "☐", p["name"], p["kuerzel"], (p.get("format") or aktionen.FBX).upper(),
-                "zuletzt %s" % stand["stand"] if stand else "noch nie veröffentlicht")))
-        aktiv = [p for p in self.modell_vorlagen if p.get("aktiv", True)]
-        self.m_hinweis.Text = ("„Modell aktualisieren“ stellt %d angehakte Vorlage(n) in den Viewer. Unabhängig vom Einreichen "
-                               "der Durchbrüche – nur nötig, wenn sich das Modell geändert hat." % len(aktiv))
-        self._modell_sperre = True
-        self.m_liste.ItemsSource = zeilen
-        for z in zeilen:
-            if z.id == self.modell_auswahl:
-                self.m_liste.SelectedItem = z
-        if self.m_liste.SelectedItem is None and zeilen:
-            self.m_liste.SelectedIndex = 0
-        self._modell_sperre = False
-        self._modell_gewaehlt()
-
-    def _modell(self):
-        return next((p for p in self.modell_vorlagen if p["id"] == self.modell_auswahl), None)
-
-    def _format_info(self):
-        self.m_format_info.Text = aktionen.FORMAT_TEXT[aktionen.IFC if self.m_format.SelectedIndex == 1 else aktionen.FBX]
-
-    def _modell_gewaehlt(self):
-        if getattr(self, "_modell_sperre", False):
-            return
-        z = self.m_liste.SelectedItem
-        self.modell_auswahl = z.id if z is not None else None
-        p = self._modell()
-        self.m_editor.IsEnabled = p is not None
-        self.m_gewerke.Children.Clear()
-        self.m_ebenen.Children.Clear()
-        if p is None:
-            return
-        self.m_aktiv.IsChecked = bool(p.get("aktiv", True))
-        self.m_name.Text = p["name"]
-        self.m_kuerzel.Text = p["kuerzel"]
-        self.m_format.SelectedIndex = 1 if p.get("format") == aktionen.IFC else 0
-        self._format_info()
-        stand = self.modelle_stand.get(p["kuerzel"])
-        self.m_stand.Text = ("Im Viewer: Stand %s (%s)." % (stand["stand"], stand.get("firma", "")) if stand
-                             else "Noch nicht im Viewer.")
-        for name, _ in pakete.gewerke_fuer(self.einst["rolle"]):
-            b = CheckBox()
-            b.Content = name
-            b.IsChecked = name in (p.get("gewerke") or [])
-            b.Margin = Thickness(0, 1, 0, 1)
-            self.m_gewerke.Children.Add(b)
-        for name in self.ebenen_doc:
-            b = CheckBox()
-            b.Content = name
-            b.IsChecked = name in (p.get("ebenen") or [])
-            b.Margin = Thickness(0, 1, 0, 1)
-            self.m_ebenen.Children.Add(b)
-
-    def _modell_speichern(self):
-        p = self._modell()
-        if p is None:
-            return None
-        name = (self.m_name.Text or "").strip()
-        kuerzel = einstellungen.kuerzel_bereinigen(self.m_kuerzel.Text)
-        if not name or not kuerzel:
-            self.melden("Bitte Name und Kürzel angeben.", fehler=True)
-            return None
-        if any(q is not p and (q["name"] == name or q["kuerzel"] == kuerzel) for q in self.modell_vorlagen):
-            self.melden("Name oder Kürzel gibt es schon.", fehler=True)
-            return None
-        p.update({"name": name, "kuerzel": kuerzel, "aktiv": bool(self.m_aktiv.IsChecked),
-                  "format": aktionen.IFC if self.m_format.SelectedIndex == 1 else aktionen.FBX,
-                  "gewerke": [b.Content for b in self.m_gewerke.Children if b.IsChecked],
-                  "ebenen": [b.Content for b in self.m_ebenen.Children if b.IsChecked]})
-        self._modelle_sichern()
-        self.modelle_zeichnen()
-        self.melden("Modell-Vorlage „%s“ gespeichert." % name)
-        return p
-
-    def _modell_neu(self):
-        n = len(self.modell_vorlagen) + 1
-        p = pakete.neu(pakete.TGA, "Modell %d" % n, "%s-%d" % (self.einst["modellkuerzel"], n),
-                       [g[0] for g in pakete.gewerke_fuer(self.einst["rolle"])])
-        self.modell_vorlagen.append(p)
-        self.modell_auswahl = p["id"]
-        self._modelle_sichern()
-        self.modelle_zeichnen()
-        self.m_name.Focus()
-        self.m_name.SelectAll()
-
-    def _modell_weg(self):
-        p = self._modell()
-        if p and forms.alert("Modell-Vorlage „%s“ entfernen? Die Revit-Ansicht bleibt bestehen." % p["name"], yes=True, no=True):
-            self.modell_vorlagen.remove(p)
-            self.modell_auswahl = None
-            self._modelle_sichern()
-            self.modelle_zeichnen()
-
-    def _modell_ansicht(self):
-        p = self._modell_speichern()
-        if p is None or self.plan is None:
-            return
-
-        def f(uiapp):
-            uidoc = uiapp.ActiveUIDocument
-            v = pakete.ansicht_aufbauen(uidoc.Document, p, self.plan, self.pruefset)
-            uidoc.ActiveView = v
-            kats = pakete.tga_zaehlen(uidoc.Document, p, set(eid(i) for i in self.plan.element_ids.values()))
-            n = sum(kats.values())
-            self.melden("„%s“: %d Bauteile sichtbar (%s). Exportiert wird genau das – in Revit nach Bedarf ausblenden, "
-                        "filtern oder Schnittbox setzen." % (v.Name, n, ", ".join("%s %d" % kv for kv in
-                                                                                   sorted(kats.items(), key=lambda kv: -kv[1])[:4])))
-        self.auftrag("Exportansicht „%s“" % p["name"], f)
-
     # ================================================================ Reiter 4: Einreichen
 
     def zusammenfassung_zeichnen(self):
@@ -817,8 +791,10 @@ class Werkzeug(forms.WPFWindow):
                 plan = aktionen.einreichen_planen(doc, self.einst, self.pruefset,
                                                   fortschritt=lambda i, n: fs.menge(i, n, "Durchbrüche"))
                 fs.schritt(1, "%d Durchbrüche, Prüfrunde „%s“" % (len(auswahl), runde))
+                v = self._vorlage()
                 r = aktionen.einreichen_ausfuehren(self.einst, plan, rundenname=runde,
-                                                   auswahl=set(o for o in auswahl if o in plan.objekte), entfallen=entfallen)
+                                                   auswahl=set(o for o in auswahl if o in plan.objekte), entfallen=entfallen,
+                                                   stand=v["name"] if v else "Ohne Stand")
                 fs.schritt(2)
                 v = self._vorlage()
                 if v is not None:
@@ -831,75 +807,9 @@ class Werkzeug(forms.WPFWindow):
         self.auftrag("Einreichen", f)
         self.einlesen()
 
-    def modell_aktualisieren(self):
-        """Angehakte Modell-Vorlagen exportieren (FBX oder IFC) und in den Viewer stellen – nur wenn geändert."""
-        if self._modell() is not None and self._modell_speichern() is None:
-            return
-        aktiv = [p for p in self.modell_vorlagen if p.get("aktiv", True)]
-        if not aktiv:
-            self.melden("Keine Modell-Vorlage angehakt („Beim Einreichen mitschicken“).", fehler=True)
-            return
-        erzwingen = bool(self.m_erzwingen.IsChecked)
-
-        def f(uiapp):
-            doc = uiapp.ActiveUIDocument.Document
-            version = aktionen.modell_version(doc)
-            schritte = []
-            for p in aktiv:
-                fmt = (p.get("format") or aktionen.FBX).upper()
-                schritte += ["%s: Ansicht vorbereiten" % p["name"], "%s: %s-Export durch Revit" % (p["name"], fmt),
-                             "%s: in den Projektordner kopieren" % p["name"]]
-            with Fortschritt("Modell aktualisieren", schritte) as fs:
-                for i, p in enumerate(aktiv):
-                    s0 = 3 * i
-                    konfig = json.dumps([p.get("format"), sorted(p.get("gewerke") or []), sorted(p.get("ebenen") or [])])
-                    unveraendert = (version and p.get("letzte_version") == version and p.get("letzte_konfig") == konfig
-                                    and not doc.IsModified and p["kuerzel"] in self.modelle_stand)
-                    if unveraendert and not erzwingen:
-                        for k in range(3):
-                            fs.ueberspringen(s0 + k, "unverändert seit %s" % self.modelle_stand[p["kuerzel"]]["stand"])
-                        self.log("„%s“: unverändert – übersprungen." % p["name"])
-                        continue
-                    fs.schritt(s0, "Exportansicht „%s“" % pakete.ansicht_name(p))
-                    plan = self.plan or aktionen.einreichen_planen(doc, self.einst, self.pruefset)
-                    v = pakete.ansicht_finden(doc, p) or pakete.ansicht_aufbauen(doc, p, plan, self.pruefset)
-                    fmt = p.get("format") or aktionen.FBX
-                    zusatz = None
-                    if fmt == aktionen.FBX:
-                        fs.detail("Bauteil-Infos sammeln …")
-                        zusatz = aktionen.bauteil_infos(doc, v, self.pruefset,
-                                                        fortschritt=lambda a, b: fs.menge(a, b, "Bauteile"))
-                    fs.schritt(s0 + 1, "Revit exportiert – das kann einige Minuten dauern. Revit zeigt unten seinen "
-                                       "eigenen Fortschritt und reagiert so lange nicht.")
-                    tmp = tempfile.mkdtemp(prefix="dbk_export_")
-                    try:
-                        start = time.time()
-                        if fmt == aktionen.FBX:
-                            pfad = aktionen.fbx_aus_ansicht(doc, v, tmp, "export.fbx", self.pruefset)
-                        else:
-                            pfad = aktionen.ifc_aus_ansicht(doc, v, tmp, "export.ifc", self.pruefset)
-                        dauer = time.time() - start
-                        fs.schritt(s0 + 2, "%.0f MB nach %d:%02d min exportiert" % (os.path.getsize(pfad) / 1e6,
-                                                                                  int(dauer) // 60, int(dauer) % 60))
-                        d = aktionen.datei_veroeffentlichen(doc, self.einst, pfad, p["kuerzel"], "%s (%s)" % (doc.Title, v.Name),
-                                                            fmt, geschosse=self.pruefset.get("geschosse"), zusatz=zusatz,
-                                                            version=version, fortschritt=lambda a, b: fs.menge(a, b, "MB"))
-                    finally:
-                        shutil.rmtree(tmp, ignore_errors=True)
-                    p["letzte_version"], p["letzte_konfig"] = version, konfig
-                    self._modelle_sichern()
-                    self.log("„%s“ als %s veröffentlicht (%s MB, Export %d:%02d min)."
-                             % (p["name"], fmt.upper(), d["groesse_mb"], int(dauer) // 60, int(dauer) % 60))
-                fs.fertig()
-        self.auftrag("Modell aktualisieren", f)
-        self.einlesen()
-
     # ================================================================ Werkzeugleiste
 
     def in_revit_zeigen(self):
-        if self.tabs.SelectedItem == self.t_modell:
-            self._modell_ansicht()
-            return
         item = self.d_liste.SelectedItem
         oid = item.Header.Tag if (item is not None and isinstance(item.Header, CheckBox)) else None
         if oid is None or self.plan is None:

@@ -38,25 +38,35 @@ Bedienung:
 - **Geschoss** wählen: im 3D werden höhere Geschosse ausgeblendet, im Grundriss wird 1,00 m über OKFF geschnitten.
 - **Schnitt setzen**: danach auf eine Fläche klicken, die Ebene am Pfeil ziehen. **Schnittbox** legt sechs
   verschiebbare Ebenen um den gewählten Durchbruch.
-- Liste links (Standard: „Wartet auf mich“), Details mit Freigaben, Verlauf und Chat rechts.
+- **Seitenleiste links „Inhalte“**: Modelle und Durchbruch-Stände getrennt mit dem Auge ein-/ausblenden.
+  Je Stand zeigen farbige Zahlen, wie viele in Prüfung, abgelehnt oder frei sind (Klick filtert).
+  ⌖ am Modell: Kategorien, „bei mir nicht laden“ und **Ausrichten** (Ost–West, Nord–Süd, Höhe, Drehung) –
+  gilt zunächst nur im eigenen Browser; der Eigentümer des Modells kann die Lage **für alle speichern**.
+- **+ Modell laden** (gestricheltes Feld unten links): IFC oder FBX anklicken oder hineinziehen – liegt danach für alle im Projektordner.
+- Rechts die Durchbruch-Liste (Standard: „Wartet auf mich“), darunter Details mit Freigaben, Verlauf und Chat.
 - Neue Einträge anderer Parteien erscheinen automatisch (alle 5 Sekunden).
 
 ## Revit (pyRevit-Reiter „DBK“)
 
 Die Erweiterung liegt in `pyrevit/DBK.extension`; der Ordner `pyrevit` ist in pyRevit als Suchpfad eingetragen.
 
-Ein Knopf **Durchbruchskoordination** öffnet ein Werkzeug (bleibt neben Revit offen) mit Reitern – die Reiter richten sich nach der Rolle:
+Zwei Knöpfe, beide Fenster bleiben neben Revit offen:
+
+**Durchbruchskoordination** – Reiter je nach Rolle:
 
 | Reiter | Was passiert |
 |---|---|
-| **Projekt** | Projektordner (legt bei Bedarf ein neues Projekt an), Name, Firma, Rolle, Modellkürzel, Ansichtsvorlagen. Nur beim ersten Mal nötig |
-| **Durchbrüche** (TGA, ELT, Labor) | Links: welche Familien/Typen Durchbrüche sind. Rechts: alle Exemplare nach Ebene mit Zustand (neu, verschoben, schon geschickt, abgelehnt). **Auswahlvorlagen** (z. B. „EG Rohbau“) merken Ebene und zurückgehaltene Exemplare; neu hinzugekommene werden automatisch angehakt |
-| **Modell** | Modell-Vorlagen je Partei (TGA ohne Durchbrüche, Architektur gesamt …) mit eigener Exportansicht „DBK Paket – Name“ |
-| **Einreichen** / **Veröffentlichen** | Zusammenfassung, Prüfrunde, ein Knopf: Durchbrüche als Prüfobjekte, Modelle als IFC in den Viewer |
+| **Projekt** | Projektordner (legt bei Bedarf ein neues Projekt an), Name, Firma, Rolle, Modellkürzel, Geschosse. Nur beim ersten Mal nötig |
+| **Durchbrüche** (TGA, ELT, Labor) | Links: welche Familien/Typen Durchbrüche sind. Rechts: alle Exemplare nach Ebene mit Zustand (neu, verschoben, schon geschickt, abgelehnt). **Stände** (Auswahlvorlagen, z. B. „EG Rohbau“) legen fest, was zusammen eingereicht wird – entweder per **Filter** (Ebene, zurückgehaltene Exemplare) oder per **3D-Ansicht** („Ansicht anlegen“ erzeugt „DBK Stand – Name“; was dort sichtbar ist, gehört dazu) |
+| **Einreichen** | Zusammenfassung, Prüfrunde, ein Knopf: Durchbrüche des Stands als Prüfobjekte. Im Viewer lässt sich jeder Stand einzeln ein-/ausblenden |
 
 Oben: **Nächster Hinweis**, **In Revit zeigen**, **Viewer öffnen**. Prüfen, Kommentieren und Freigeben passieren im Viewer (Prüf-Manager für alle).
 
-Grundsatz: Was in der Exportansicht sichtbar ist, geht raus. Durchbrüche werden nie ins Modell-IFC exportiert.
+**Modelle zum Viewer** – je Zeile eine 3D-Ansicht, ein Name im Viewer, Format (FBX schnell / IFC mit Eigenschaften) und was mit Verknüpfungen passiert:
+*Alles wie in der Ansicht*, *Nur dieses Modell* oder *Je Verknüpfung einzeln* (jede Verknüpfung wird ein eigenes, einzeln schaltbares Modell).
+Unveränderte Modelle werden übersprungen; ein Fortschrittsfenster zeigt jeden Schritt.
+
+Grundsatz: Was in der Exportansicht sichtbar ist, geht raus. Durchbrüche werden nie mit dem Modell exportiert.
 
 ## Tests
 
@@ -71,8 +81,9 @@ Abgleich Python ↔ JavaScript: Entwicklungs-Server starten und <http://127.0.0.
 
 - [x] Kern (Python), Datenformat, Tests
 - [x] Web-App: Modelle laden, Durchbrüche nach Status, 3D/Grundriss, Geschosse, Schnitte, Freigeben/Ablehnen, Chat
-- [ ] pyRevit-Erweiterung (Start-Dialog, Prüfset, Einreichen, Prüf-Manager, Parameter-Sync, Modell veröffentlichen)
-- [ ] IFC im Browser hochladen und als Fragments ablegen
+- [x] Web-App: Seitenleiste Modelle/Stände, Modell ausrichten, IFC/FBX im Browser hochladen
+- [x] pyRevit: Durchbruchskoordination (Projekt, Durchbrüche, Stände, Einreichen), Modelle zum Viewer (FBX/IFC, Verknüpfungen)
+- [ ] pyRevit: Parameter-Sync (Status zurück nach Revit)
 - [ ] Plan-Ebene (PDF aus Revit) und Modus „Plan“
 - [ ] Verwaltungs-Seite (Rollen, Status, Pflicht-Matrix)
 - [ ] Berichte (PDF-Verlauf, BCF)

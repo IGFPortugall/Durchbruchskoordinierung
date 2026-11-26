@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Durchbruchskoordination: Projekt · Durchbrüche · Modell · Einreichen."""
+"""Durchbruchskoordination: Projekt · Durchbrüche · Einreichen."""
 from pyrevit import revit
 import dbk_revit
 from dbk_revit import werkzeug

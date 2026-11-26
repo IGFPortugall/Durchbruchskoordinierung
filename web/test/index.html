@@ -37,6 +37,7 @@ for (const [szenario, s] of Object.entries(fx.szenarien)) {
   pruefe(`${szenario}: ignoriert`, z.ignoriert.length, e.ignoriert);
   pruefe(`${szenario}: Verlauf`, Object.fromEntries([...z.objekte].map(([k, o]) => [k, o.verlauf.length])), e.verlauf_laengen);
   pruefe(`${szenario}: Runden`, Object.keys(z.runden).sort(), e.runden);
+  pruefe(`${szenario}: Stände`, Object.fromEntries([...z.objekte].map(([k, o]) => [k, o.stand])), e.staende);
 }
 pruefe("ordnername", ["Architekt XY", "IGF", "Büro/Müller & Co."].map(ordnername), ["Architekt_XY", "IGF", "Büro_Müller_Co"]);
 

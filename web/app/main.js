@@ -154,6 +154,8 @@ async function modelleLaden() {
       } else await app.viewer.ladeModell(id, await app.ablage.liesBinaer(v.datei));
       app.geladeneModelle.set(id, v.hash);
       app.sichtbareModelle.add(id);
+      const a = ausrichtungVon(id);
+      if (a) app.viewer.ausrichten(id, a);
     } catch (e) {
       console.error(e);
       zeigeHinweis(`Modell ${id} konnte nicht geladen werden: ${e.message}`);
@@ -169,8 +171,9 @@ async function modelleLaden() {
     [...app.viewer.ebenen].reverse().map((e) => `<option>${esc(e.name)}</option>`).join("");
   g.value = vorher;
   ebenenSchalter();
+  inhalteZeichnen();
   zeigeHinweis(app.geladeneModelle.size ? "" :
-    "Noch kein Modell. Oben „Modell hinzufügen“ (IFC) oder in Revit: DBK → Modell veröffentlichen.");
+    "Noch kein Modell. Links „+ Modell laden“ (IFC/FBX) oder in Revit: DBK → Modelle zum Viewer.");
 }
 
 /** IFC: vorhandene Fragments nutzen, sonst einmal umwandeln und für alle ablegen. */
@@ -190,22 +193,24 @@ async function ifcLaden(id, v) {
   }
 }
 
-/** IFC-Datei hochladen: ablegen unter modelle/<Kürzel>/<Hash>.ifc und veröffentlichen. */
-function modellDialog() {
+/** IFC/FBX-Datei hochladen: ablegen unter modelle/<Kürzel>/<Hash>.<format> und veröffentlichen. */
+function modellDialog(datei) {
   const vorschlag = { ARC: "Architektur", TWP: "Tragwerk", HLS: "TGA HLS", ELT: "Elektro", LAB: "Labor" };
-  const d = dialog(`<h2>Modell hinzufügen</h2>
-    <p style="margin:0;color:var(--text-2)">IFC-Datei wählen. Sie wird einmalig in Fragments umgewandelt und liegt danach für alle im Projektordner.</p>
-    <label>IFC-Datei<input id="m-datei" type="file" accept=".ifc"></label>
-    <label>Kürzel<input id="m-kuerzel" list="m-kuerzel-liste" value="ARC" title="Unter diesem Namen erscheint das Modell im Viewer">
+  const format = /\.fbx$/i.test(datei.name) ? "fbx" : "ifc";
+  const d = dialog(`<h2>Modell laden</h2>
+    <p style="margin:0;color:var(--text-2)"><b>${esc(datei.name)}</b> (${Math.round(datei.size / 1e5) / 10} MB) –
+      ${format === "ifc" ? "wird einmalig in Fragments umgewandelt und liegt" : "liegt"} danach für alle im Projektordner.
+      Passt die Lage nicht, links am Modell auf ⌖ klicken und ausrichten.</p>
+    <label>Name im Viewer<input id="m-name" value="${esc(datei.name.replace(/\.(ifc|fbx)$/i, ""))}"></label>
+    <label>Kürzel<input id="m-kuerzel" list="m-kuerzel-liste" value="ARC" title="Eindeutige Kennung des Modells – gleiches Kürzel = neue Version">
       <datalist id="m-kuerzel-liste">${Object.entries(vorschlag).map(([k, n]) => `<option value="${k}">${n}</option>`).join("")}</datalist></label>
     <div id="m-fehler" class="fehlermeldung"></div>
     <div class="reihe"><button id="m-abbrechen">Abbrechen</button><button id="m-ok">Hochladen</button></div>`);
   d.querySelector("#m-abbrechen").onclick = schliesseDialog;
   d.querySelector("#m-ok").onclick = async () => {
-    const datei = d.querySelector("#m-datei").files[0];
     const kuerzel = d.querySelector("#m-kuerzel").value.trim().toUpperCase().replace(/[^A-Z0-9_-]/g, "");
+    const name = d.querySelector("#m-name").value.trim();
     const fehler = (t) => { d.querySelector("#m-fehler").textContent = t; };
-    if (!datei) return fehler("Bitte eine IFC-Datei wählen.");
     if (!kuerzel) return fehler("Bitte ein Kürzel angeben, z. B. ARC.");
     const besitzer = app.zustand.modelle[kuerzel]?.besitzer;
     if (besitzer && besitzer !== app.absender.firma) return fehler(`Das Modell ${kuerzel} gehört ${besitzer}. Bitte ein anderes Kürzel wählen.`);
@@ -215,11 +220,11 @@ function modellDialog() {
       const daten = await datei.arrayBuffer();
       const hash = [...new Uint8Array(await crypto.subtle.digest("SHA-1", daten))]
         .map((b) => b.toString(16).padStart(2, "0")).join("").slice(0, 16);
-      const pfad = `modelle/${kuerzel}/${hash}.ifc`;
+      const pfad = `modelle/${kuerzel}/${hash}.${format}`;
       fehler("Datei wird in den Projektordner kopiert …");
       try { await app.ablage.zugang.schreibe(pfad, daten); } catch (e) { if (!/existiert|409/.test(e.message)) throw e; }
       await app.ablage.schreibe(app.absender, "modell_veroeffentlicht", null, {
-        modell: kuerzel, datei: pfad, hash, format: "ifc", quelle: datei.name,
+        modell: kuerzel, datei: pfad, hash, format, quelle: datei.name, ...(name ? { name } : {}),
         stand: new Date().toLocaleString("de-DE"), groesse_mb: Math.round(daten.byteLength / 1e4) / 100,
       });
       schliesseDialog();
@@ -238,8 +243,9 @@ function modellDialog() {
 
 function ansichtEinstellungen(neu) {
   const alt = lokal("ansicht") || {};
-  const e = { reiter: "modelle", nav: { ...NAV_STANDARD }, nichtLaden: [], boxRahmen: true, griffe: true, ...alt };
+  const e = { reiter: "schnitte", nav: { ...NAV_STANDARD }, nichtLaden: [], boxRahmen: true, griffe: true, ...alt };
   if (neu) { Object.assign(e, neu); lokal("ansicht", e); }
+  if (e.reiter === "modelle") e.reiter = "schnitte";   // Modelle stehen jetzt in der Seitenleiste
   return e;
 }
 
@@ -254,27 +260,12 @@ function panelUmschalten() {
 
 function panelZeichnen() {
   const e = ansichtEinstellungen();
-  const reiter = [["modelle", "Modelle"], ["schnitte", "Schnitte"], ["navigation", "Navigation"], ["darstellung", "Darstellung"]];
+  const reiter = [["schnitte", "Schnitte"], ["navigation", "Navigation"], ["darstellung", "Darstellung"]];
   const kopf = `<div class="p-kopf">${reiter.map(([k, n]) => `<button data-reiter="${k}" class="${e.reiter === k ? "an" : ""}">${n}</button>`).join("")}
     <button class="p-zu" title="Schließen">✕</button></div>`;
   let inhalt = "";
   const v = app.viewer;
-  if (e.reiter === "modelle") {
-    const alle = Object.entries(app.zustand.modelle);
-    inhalt = alle.length ? alle.map(([id, m]) => {
-      const geladen = app.geladeneModelle.has(id), sichtbar = geladen && v.modellSichtbar(id);
-      const kats = v.kategorien?.get(id) || [];
-      const nicht = e.nichtLaden.includes(id);
-      return `<div class="p-modell">
-        <div class="p-zeile"><label class="p-haupt"><input type="checkbox" data-modell="${esc(id)}" ${sichtbar ? "checked" : ""} ${geladen ? "" : "disabled"}> <b>${esc(id)}</b></label>
-          <span class="p-klein">${esc((m.aktuell.format || "frag").toUpperCase())} · ${esc(m.aktuell.stand || "")} · ${esc(m.besitzer)}</span></div>
-        ${kats.length ? `<details><summary>${kats.length} Kategorien</summary><div class="p-kats">${kats.map((k) =>
-          `<label><input type="checkbox" data-modell="${esc(id)}" data-kat="${esc(k.name)}" ${k.an ? "checked" : ""}> ${esc(k.name)}${k.anzahl ? ` <span class="p-klein">${k.anzahl}</span>` : ""}</label>`).join("")}</div></details>` : ""}
-        <label class="p-klein" title="Wird bei Ihnen nicht geladen – spart Zeit bei vielen oder alten Modellen. Für andere ändert sich nichts.">
-          <input type="checkbox" data-nicht="${esc(id)}" ${nicht ? "checked" : ""}> bei mir nicht laden</label>
-      </div>`;
-    }).join("") : `<p class="p-klein">Noch keine Modelle im Projekt.</p>`;
-  } else if (e.reiter === "schnitte") {
+  if (e.reiter === "schnitte") {
     const g = v.modellGrenzen(), b = v.box;
     const regler = (achse, name) => {
       const lo = g.min[achse], hi = g.max[achse], schritt = Math.max(0.05, (hi - lo) / 400);
@@ -313,17 +304,6 @@ function panelZeichnen() {
 
   p.querySelectorAll("[data-reiter]").forEach((b) => b.onclick = () => { ansichtEinstellungen({ reiter: b.dataset.reiter }); panelZeichnen(); });
   p.querySelector(".p-zu").onclick = panelUmschalten;
-  p.querySelectorAll("input[data-modell]").forEach((i) => i.onchange = () => {
-    if (i.dataset.kat) v.setzeKategorieSichtbar(i.dataset.modell, i.dataset.kat, i.checked);
-    else v.setzeModellSichtbar(i.dataset.modell, i.checked);
-  });
-  p.querySelectorAll("input[data-nicht]").forEach((i) => i.onchange = () => {
-    const liste = new Set(ansichtEinstellungen().nichtLaden);
-    i.checked ? liste.add(i.dataset.nicht) : liste.delete(i.dataset.nicht);
-    ansichtEinstellungen({ nichtLaden: [...liste] });
-    if (i.checked) { v.setzeModellSichtbar(i.dataset.nicht, false); zeigeHinweis("Wird beim nächsten Öffnen nicht mehr geladen."); }
-    else modelleLaden();
-  });
   const box = p.querySelector("#p-box");
   if (box) {
     box.onchange = () => { box.checked ? v.schnittboxSetzen(v.modellGrenzen().min, v.modellGrenzen().max) : v.schnittboxAus(); panelZeichnen(); };
@@ -358,6 +338,205 @@ function panelZeichnen() {
   if (beschr) beschr.onchange = () => { v.beschriftung = beschr.checked; };
 }
 
+// ---------------------------------------------------------------- Seitenleiste „Inhalte“: Modelle · Stände
+
+const AUGE = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>`;
+const AUGE_ZU = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><path d="M4 4l16 16"/></svg>`;
+const OHNE_STAND = "";
+const ACHSEN = [["x_mm", "Ost–West", 20000, 10, "mm"], ["y_mm", "Nord–Süd", 20000, 10, "mm"],
+  ["z_mm", "Höhe", 10000, 10, "mm"], ["drehung_grad", "Drehung", 180, 0.5, "°"]];
+
+/** Lokale Ausrichtung (nur in diesem Browser) je Projekt. */
+function ausrichtungLokal(id, wert) {
+  const schluessel = "ausrichtung-" + (app.projekt.name || "projekt");
+  const alle = lokal(schluessel) || {};
+  if (wert === undefined) return alle[id] || null;
+  if (wert === null) delete alle[id]; else alle[id] = wert;
+  lokal(schluessel, alle);
+  return wert;
+}
+
+/** Wirksame Ausrichtung: eigene lokale Verschiebung vor der gemeinsamen des Modell-Eigentümers. */
+function ausrichtungVon(id) {
+  return ausrichtungLokal(id) || app.zustand.modelle[id]?.ausrichtung || null;
+}
+
+function istVerschoben(a) { return !!a && ACHSEN.some(([k]) => Math.abs(a[k] || 0) > 1e-9); }
+
+function staendeAus() { return new Set(lokal("staende-aus-" + (app.projekt.name || "projekt")) || []); }
+
+function inhalteZeichnen() {
+  if (!app.viewer) return;
+  const v = app.viewer, ansicht = ansichtEinstellungen();
+  // Modelle
+  const modelle = Object.entries(app.zustand.modelle).sort(([a, x], [b, y]) =>
+    String(x.aktuell?.name || a).localeCompare(String(y.aktuell?.name || b), "de"));
+  // Während jemand an einem Regler zieht oder eine Zahl tippt, die Modell-Liste nicht neu aufbauen
+  const tippt = document.activeElement?.tagName === "INPUT" && document.activeElement.closest(".i-mehr");
+  if (!tippt) $("i-modelle").innerHTML = modelle.length ? modelle.map(([id, m]) => {
+    const geladen = app.geladeneModelle.has(id), nicht = ansicht.nichtLaden.includes(id);
+    const sichtbar = geladen && v.modellSichtbar(id), offen = app.offenesModell === id;
+    const a = ausrichtungVon(id), lokalA = ausrichtungLokal(id);
+    const info = [(m.aktuell.format || "frag").toUpperCase(), m.aktuell.stand, m.besitzer,
+      nicht ? "bei mir nicht geladen" : !geladen ? "lädt …" : "", istVerschoben(a) ? (lokalA ? "verschoben (nur bei mir)" : "ausgerichtet") : ""]
+      .filter(Boolean).join(" · ");
+    return `<div class="i-zeile ${sichtbar ? "" : "aus"}">
+      <div class="i-oben">
+        <button class="i-auge ${sichtbar ? "" : "zu"}" data-auge="${esc(id)}" ${geladen ? "" : "disabled"} title="${sichtbar ? "Ausblenden" : "Einblenden"}">${sichtbar ? AUGE : AUGE_ZU}</button>
+        <span class="i-name" title="${esc(id)} – ${esc(m.aktuell.quelle || "")}">${esc(m.aktuell.name || id)}</span>
+        <button class="i-knopf ${offen ? "an" : ""}" data-mehr="${esc(id)}" title="Kategorien, Ausrichtung (verschieben/drehen), Laden">⌖</button>
+      </div>
+      <div class="i-klein" title="${esc(info)}">${esc(info)}</div>
+      ${offen ? modellMehr(id, m, geladen, nicht) : ""}
+    </div>`;
+  }).join("") : `<div class="leer">Noch kein Modell. Unten laden oder in Revit „Modelle zum Viewer“.</div>`;
+
+  // Durchbruch-Stände
+  const aus = staendeAus(), staende = new Map();
+  for (const e of eintraege()) {
+    const s = e.o.stand || OHNE_STAND;
+    if (!staende.has(s)) staende.set(s, { anzahl: 0, [OFFEN]: 0, [BLOCKIERT]: 0, [FREIGABE]: 0 });
+    const z = staende.get(s);
+    z.anzahl++;
+    z[e.gs.wirkung] = (z[e.gs.wirkung] || 0) + 1;
+  }
+  const namen = [...staende.keys()].sort((a, b) => (a === OHNE_STAND) - (b === OHNE_STAND) || a.localeCompare(b, "de"));
+  $("i-staende").innerHTML = namen.length ? namen.map((s) => {
+    const z = staende.get(s), an = !aus.has(s);
+    const chip = (w, t) => z[w] ? `<span class="pill ${w}" data-chip="${w}" data-stand="${esc(s)}" title="${t} – nur diese zeigen">${z[w]}</span>` : "";
+    return `<div class="i-zeile ${an ? "" : "aus"}">
+      <div class="i-oben">
+        <button class="i-auge ${an ? "" : "zu"}" data-stand-auge="${esc(s)}" title="${an ? "Ausblenden" : "Einblenden"}">${an ? AUGE : AUGE_ZU}</button>
+        <span class="i-name">${esc(s || "Ohne Stand")}</span><span class="p-klein">${z.anzahl}</span>
+      </div>
+      <div class="i-chips">${chip(OFFEN, "In Prüfung")}${chip(BLOCKIERT, "Abgelehnt")}${chip(FREIGABE, "Freigegeben")}</div>
+    </div>`;
+  }).join("") : `<div class="leer">Noch keine Durchbrüche eingereicht.</div>`;
+
+  const leiste = document.querySelector(".inhalte");
+  leiste.querySelectorAll("[data-auge]").forEach((b) => b.onclick = () => {
+    v.setzeModellSichtbar(b.dataset.auge, !v.modellSichtbar(b.dataset.auge));
+    inhalteZeichnen();
+  });
+  leiste.querySelectorAll("[data-mehr]").forEach((b) => b.onclick = () => {
+    app.offenesModell = app.offenesModell === b.dataset.mehr ? null : b.dataset.mehr;
+    inhalteZeichnen();
+  });
+  leiste.querySelectorAll("[data-stand-auge]").forEach((b) => b.onclick = () => {
+    const s = staendeAus();
+    s.has(b.dataset.standAuge) ? s.delete(b.dataset.standAuge) : s.add(b.dataset.standAuge);
+    lokal("staende-aus-" + (app.projekt.name || "projekt"), [...s]);
+    allesZeichnen();
+  });
+  leiste.querySelectorAll("[data-chip]").forEach((c) => c.onclick = () => {
+    const s = staendeAus();
+    s.delete(c.dataset.stand);
+    lokal("staende-aus-" + (app.projekt.name || "projekt"), [...s]);
+    $("filter-ich").checked = false;
+    $("filter-status").value = c.dataset.chip;
+    allesZeichnen();
+  });
+  modellMehrVerbinden(leiste);
+}
+
+function modellMehr(id, m, geladen, nicht) {
+  const kats = app.viewer.kategorien?.get(id) || [];
+  const a = ausrichtungVon(id) || {}, eigen = m.besitzer === app.absender.firma, lokalA = ausrichtungLokal(id);
+  const zeile = ([k, name, grenze, schritt, einheit]) => {
+    const wert = a[k] || 0, g = Math.max(grenze, Math.ceil(Math.abs(wert) * 1.5));
+    return `<span>${name}</span><input type="range" data-ausr="${k}" min="${-g}" max="${g}" step="${schritt}" value="${wert}">
+      <input type="number" data-ausr-zahl="${k}" step="${schritt}" value="${wert}" title="${einheit}">`;
+  };
+  return `<div class="i-mehr" data-modell="${esc(id)}">
+    ${geladen && kats.length ? `<details><summary>${kats.length} Kategorien</summary><div class="p-kats">${kats.map((k) =>
+      `<label><input type="checkbox" data-kat="${esc(k.name)}" ${k.an ? "checked" : ""}> ${esc(k.name)}${k.anzahl ? ` <span class="p-klein">${k.anzahl}</span>` : ""}</label>`).join("")}</div></details>` : ""}
+    <div class="p-abschnitt">Ausrichten</div>
+    ${geladen ? `<div class="ausrichten">${ACHSEN.map(zeile).join("")}</div>
+    <div class="reihe">
+      <button data-ausr-reset title="${lokalA ? "Eigene Verschiebung verwerfen" : "Auf Ursprungslage"}">Zurücksetzen</button>
+      ${eigen ? `<button data-ausr-alle title="Diese Lage gilt dann für alle Beteiligten">Für alle speichern</button>` : ""}
+    </div>
+    <span class="p-klein">${eigen ? (lokalA ? "Noch nur bei Ihnen – „Für alle speichern“ übernimmt die Lage für alle." : "Lage gilt für alle.")
+      : `Gilt nur bei Ihnen. Für alle festlegen kann ${esc(m.besitzer)}.`}</span>`
+    : `<span class="p-klein">Modell ist nicht geladen.</span>`}
+    <label class="p-klein" title="Spart Zeit bei vielen oder großen Modellen. Für andere ändert sich nichts.">
+      <input type="checkbox" data-nicht ${nicht ? "checked" : ""}> bei mir nicht laden</label>
+  </div>`;
+}
+
+function modellMehrVerbinden(leiste) {
+  const box = leiste.querySelector(".i-mehr");
+  if (!box) return;
+  const id = box.dataset.modell, v = app.viewer;
+  box.querySelectorAll("input[data-kat]").forEach((i) => i.onchange = () => v.setzeKategorieSichtbar(id, i.dataset.kat, i.checked));
+  const lesen = () => {
+    const a = { modell: id };
+    for (const [k] of ACHSEN) a[k] = parseFloat(box.querySelector(`[data-ausr-zahl="${k}"]`).value) || 0;
+    return a;
+  };
+  const anwenden = () => { const a = lesen(); ausrichtungLokal(id, a); v.ausrichten(id, a); };
+  box.querySelectorAll("input[data-ausr]").forEach((r) => r.oninput = () => {
+    box.querySelector(`[data-ausr-zahl="${r.dataset.ausr}"]`).value = r.value;
+    anwenden();
+  });
+  box.querySelectorAll("input[data-ausr-zahl]").forEach((n) => {
+    n.oninput = () => {
+      const r = box.querySelector(`[data-ausr="${n.dataset.ausrZahl}"]`), w = parseFloat(n.value) || 0;
+      if (Math.abs(w) > parseFloat(r.max)) { r.max = Math.ceil(Math.abs(w) * 1.5); r.min = -r.max; }
+      r.value = w;
+      anwenden();
+    };
+    n.onchange = () => inhalteZeichnen();
+  });
+  box.querySelectorAll("input[data-ausr]").forEach((r) => r.onchange = () => inhalteZeichnen());
+  const reset = box.querySelector("[data-ausr-reset]");
+  if (reset) reset.onclick = () => {
+    if (ausrichtungLokal(id)) ausrichtungLokal(id, null);
+    else if (app.zustand.modelle[id]?.besitzer === app.absender.firma && app.zustand.modelle[id]?.ausrichtung) {
+      ausrichtungLokal(id, { modell: id, x_mm: 0, y_mm: 0, z_mm: 0, drehung_grad: 0 });   // Null-Lage, bis „Für alle speichern“
+    }
+    v.ausrichten(id, ausrichtungVon(id));
+    inhalteZeichnen();
+  };
+  const alle = box.querySelector("[data-ausr-alle]");
+  if (alle) alle.onclick = async () => {
+    alle.disabled = true;
+    try {
+      await app.ablage.schreibe(app.absender, "modell_ausrichtung", null, lesen());
+      ausrichtungLokal(id, null);
+      app.zustand = berechne(app.ablage.alle(), app.projekt);
+      v.ausrichten(id, ausrichtungVon(id));
+      zeigeHinweis("Ausrichtung für alle gespeichert.");
+    } catch (e) {
+      console.error(e);
+      zeigeHinweis("Speichern fehlgeschlagen: " + e.message);
+    }
+    inhalteZeichnen();
+  };
+  box.querySelector("input[data-nicht]").onchange = (ev) => {
+    const liste = new Set(ansichtEinstellungen().nichtLaden);
+    ev.target.checked ? liste.add(id) : liste.delete(id);
+    ansichtEinstellungen({ nichtLaden: [...liste] });
+    if (ev.target.checked) { v.setzeModellSichtbar(id, false); zeigeHinweis("Wird beim nächsten Öffnen nicht mehr geladen."); inhalteZeichnen(); }
+    else modelleLaden();
+  };
+}
+
+/** Ablagefeld „+ Modell laden“: Klick oder Ziehen und Ablegen. */
+function ladenFeld() {
+  const feld = $("i-laden"), eingabe = $("i-datei");
+  const nimm = (datei) => {
+    if (!datei) return;
+    if (!/\.(ifc|fbx)$/i.test(datei.name)) { zeigeHinweis("Bitte eine IFC- oder FBX-Datei wählen."); return; }
+    modellDialog(datei);
+  };
+  eingabe.onchange = () => { nimm(eingabe.files[0]); eingabe.value = ""; };
+  feld.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); eingabe.click(); } };
+  feld.ondragover = (e) => { e.preventDefault(); feld.classList.add("ueber"); };
+  feld.ondragleave = () => feld.classList.remove("ueber");
+  feld.ondrop = (e) => { e.preventDefault(); feld.classList.remove("ueber"); nimm(e.dataTransfer.files[0]); };
+}
+
 // ---------------------------------------------------------------- Daten aufbereiten
 
 function eintraege() {
@@ -374,7 +553,9 @@ function gefiltert(alle) {
   const status = $("filter-status").value;
   const ich = $("filter-ich").checked;
   const geschoss = $("geschoss").value;
+  const aus = staendeAus();
   return alle.filter((e) => {
+    if (aus.has(e.o.stand || OHNE_STAND)) return false;
     if (ich && !e.wartet) return false;
     if (status && e.gs.wirkung !== status) return false;
     if (geschoss && e.o.daten.ebene !== geschoss) return false;
@@ -405,7 +586,9 @@ function wirtText(d) {
 // ---------------------------------------------------------------- Zeichnen
 
 function allesZeichnen() {
-  const alle = eintraege();
+  inhalteZeichnen();
+  const aus = staendeAus();
+  const alle = eintraege().filter((e) => !aus.has(e.o.stand || OHNE_STAND));
   const sichtbar = gefiltert(alle);
   const ids = new Set(sichtbar.map((e) => e.id));
   if (app.auswahl && !app.zustand.objekte.has(app.auswahl)) app.auswahl = null;
@@ -598,6 +781,9 @@ async function nachladen() {
       const text = document.activeElement?.id === "k-text" ? $("k-text").value : null;
       app.zustand = berechne(app.ablage.alle(), app.projekt);
       if (neu.some((e) => e.art === "modell_veroeffentlicht")) await modelleLaden();
+      if (neu.some((e) => e.art === "modell_ausrichtung")) {
+        for (const id of app.geladeneModelle.keys()) app.viewer.ausrichten(id, ausrichtungVon(id));
+      }
       allesZeichnen();
       if (text !== null && $("k-text")) { $("k-text").value = text; $("k-text").focus(); }
     }
@@ -630,7 +816,7 @@ function bedienelemente() {
   $("viewer").addEventListener("pointerup", () => setTimeout(hinweisModus, 50));
   for (const id of ["suche", "filter-status", "filter-ich"]) $(id).addEventListener("input", allesZeichnen);
   $("benutzer").onclick = async () => { app.absender = await startDialog(); zeigeBenutzer(); allesZeichnen(); };
-  $("modell-neu").onclick = modellDialog;
+  ladenFeld();
   $("einstellungen").onclick = panelUmschalten;
   $("alles").onclick = () => app.viewer.allesZeigen();
   hinweisModus();

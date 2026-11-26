@@ -168,6 +168,7 @@ export class Viewer {
   // ------------------------------------------------------------- Modelle
 
   async ladeModell(id, buffer) {
+    this._basisVergessen(id);
     if (this.fragments.list.has(id)) await this.fragments.core.disposeModel(id);
     await this.fragments.core.load(buffer, { modelId: id });
     return this._nachLaden(id);
@@ -180,6 +181,7 @@ export class Viewer {
       await this._ifc.setup({ autoSetWasm: false, wasm: { path: WEB_IFC_WASM, absolute: true },
         webIfc: { COORDINATE_TO_ORIGIN: false } });
     }
+    this._basisVergessen(id);
     if (this.fragments.list.has(id)) await this.fragments.core.disposeModel(id);
     const model = await this._ifc.load(new Uint8Array(bytes), false, id, {
       processData: { progressCallback: (p) => fortschritt && fortschritt(p) },
@@ -245,6 +247,39 @@ export class Viewer {
     return m ? m.object.visible : false;
   }
 
+  _modellObjekt(id) {
+    return this.fbx.get(id)?.gruppe || this.fragments.list.get(id)?.object || null;
+  }
+
+  /**
+   * Modell verschieben/drehen, falls es nicht zu den anderen passt.
+   * a = {x_mm, y_mm, z_mm, drehung_grad} in Revit-Achsen (x Ost, y Nord, z oben); gedreht wird
+   * um die senkrechte Achse durch die Modellmitte. null = Ursprungslage.
+   */
+  ausrichten(id, a) {
+    const o = this._modellObjekt(id);
+    if (!o) return;
+    this._basis = this._basis || new Map();
+    if (!this._basis.has(id)) {
+      o.updateMatrixWorld(true);
+      const box = new THREE.Box3().setFromObject(o);
+      this._basis.set(id, { matrix: o.matrix.clone(), mitte: box.isEmpty() ? new THREE.Vector3() : box.getCenter(new THREE.Vector3()) });
+    }
+    const { matrix, mitte } = this._basis.get(id);
+    const x = (a?.x_mm || 0) / 1000, y = (a?.y_mm || 0) / 1000, z = (a?.z_mm || 0) / 1000;
+    const winkel = ((a?.drehung_grad || 0) * Math.PI) / 180;
+    const m = new THREE.Matrix4().makeTranslation(mitte.x + x, mitte.y + z, mitte.z - y)
+      .multiply(new THREE.Matrix4().makeRotationY(winkel))
+      .multiply(new THREE.Matrix4().makeTranslation(-mitte.x, -mitte.y, -mitte.z))
+      .multiply(matrix);
+    m.decompose(o.position, o.quaternion, o.scale);
+    o.updateMatrixWorld(true);
+    if (this.fragments.list.has(id)) this.fragments.core.update(true);
+  }
+
+  /** Nach einem Neuladen: alte Basis verwerfen (neues Objekt). */
+  _basisVergessen(id) { this._basis?.delete(id); }
+
   // ------------------------------------------------------------- FBX (Revit-eigener Export)
 
   /**
@@ -285,6 +320,7 @@ export class Viewer {
   entferneFbx(id) {
     const f = this.fbx.get(id);
     if (!f) return;
+    this._basisVergessen(id);
     this.world.scene.three.remove(f.gruppe);
     f.gruppe.traverse((o) => { if (o.isMesh) { o.geometry.dispose(); } });
     this.fbx.delete(id);

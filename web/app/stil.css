@@ -46,10 +46,38 @@ input[type=search], textarea {
 .werkzeuge { overflow: visible; }
 .benutzer { white-space: nowrap; }
 
-.haupt { display: grid; grid-template-columns: 270px minmax(0, 1fr) 340px; height: calc(100% - 48px); }
-.links, .rechts { background: var(--flaeche); overflow-y: auto; }
-.links { border-right: 1px solid var(--linie); padding: 10px; display: flex; flex-direction: column; gap: 8px; }
-.rechts { border-left: 1px solid var(--linie); padding: 12px; }
+.haupt { display: grid; grid-template-columns: 250px minmax(0, 1fr) 360px; height: calc(100% - 48px); }
+.inhalte, .rechts { background: var(--flaeche); min-height: 0; }
+.rechts { border-left: 1px solid var(--linie); display: flex; flex-direction: column; }
+.r-liste { padding: 10px; display: flex; flex-direction: column; gap: 8px; flex: 0 1 46%; min-height: 160px; overflow-y: auto; border-bottom: 1px solid var(--linie); }
+.r-detail { padding: 12px; flex: 1 1 54%; overflow-y: auto; }
+
+/* Seitenleiste „Inhalte“: Modelle und Durchbruch-Stände getrennt schalten */
+.inhalte { border-right: 1px solid var(--linie); padding: 10px; display: flex; flex-direction: column; gap: 6px; overflow-y: auto; }
+.i-kopf { font-size: 11px; color: var(--text-3); text-transform: uppercase; letter-spacing: .04em; margin-top: 6px; }
+.i-liste { display: flex; flex-direction: column; gap: 4px; }
+.i-zeile { border: 1px solid var(--linie); border-radius: 8px; padding: 5px 6px; display: flex; flex-direction: column; gap: 3px; }
+.i-zeile.aus { opacity: .55; }
+.i-oben { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.i-oben .i-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.i-auge { width: 26px; height: 24px; padding: 0; border-color: var(--linie); font-size: 14px; line-height: 1; flex: none; }
+.i-auge.zu { color: var(--text-3); }
+.i-klein { font-size: 11px; color: var(--text-3); padding-left: 32px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.i-knopf { height: 24px; padding: 0 6px; font-size: 12px; border-color: var(--linie); flex: none; }
+.i-knopf.an { background: var(--akzent-bg); color: var(--akzent); }
+.i-mehr { padding: 4px 0 2px 32px; display: flex; flex-direction: column; gap: 4px; font-size: 12px; }
+.i-mehr label { display: flex; gap: 6px; align-items: center; cursor: pointer; }
+.i-chips { display: flex; gap: 4px; padding-left: 32px; flex-wrap: wrap; }
+.i-chips .pill { cursor: pointer; padding: 1px 6px; }
+.i-laden { margin-top: 8px; border: 1.5px dashed var(--linie-stark); border-radius: 10px; padding: 14px 10px; text-align: center; cursor: pointer;
+  display: flex; flex-direction: column; gap: 3px; color: var(--text-2); }
+.i-laden span { font-size: 11px; color: var(--text-3); }
+.i-laden:hover, .i-laden.ueber { border-color: var(--akzent); color: var(--akzent); background: var(--akzent-bg); }
+.ausrichten { display: grid; grid-template-columns: 54px 1fr 64px; gap: 4px 6px; align-items: center; font-size: 12px; }
+.ausrichten input[type=range] { width: 100%; accent-color: var(--akzent); }
+.ausrichten input[type=number] { width: 100%; height: 24px; border: 1px solid var(--linie-stark); border-radius: 4px; background: var(--flaeche); padding: 0 4px; }
+.i-mehr .reihe { display: flex; gap: 4px; flex-wrap: wrap; }
+.i-mehr .reihe button { height: 24px; padding: 0 7px; font-size: 12px; }
 .filter { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
 .filter label { white-space: nowrap; display: flex; gap: 4px; align-items: center; }
 .kennzahlen { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }

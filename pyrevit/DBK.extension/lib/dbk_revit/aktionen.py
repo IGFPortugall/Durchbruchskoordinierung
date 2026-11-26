@@ -117,7 +117,7 @@ def _vergleich(d):
     return dict((k, v) for k, v in d.items() if k not in ("wirt",))
 
 
-def einreichen_ausfuehren(einst, plan, rundenname=None, frist=None, auswahl=None, entfallen=True):
+def einreichen_ausfuehren(einst, plan, rundenname=None, frist=None, auswahl=None, entfallen=True, stand=None):
     """Reicht ein. auswahl: Menge von Objekt-IDs (None = Vorschlag des Plans)."""
     from .einstellungen import absender
     auswahl = plan.vorschlag() if auswahl is None else set(auswahl)
@@ -130,7 +130,7 @@ def einreichen_ausfuehren(einst, plan, rundenname=None, frist=None, auswahl=None
         runde = "R-" + dbk_zeit.kompakt(dbk_zeit.jetzt_iso())[:15]
         ablage.schreibe("pruefrunde_gestartet", None, {"runde": runde, "name": rundenname, "frist": frist})
     for oid in pruefen:
-        ablage.schreibe("eingereicht", oid, {"objekt": plan.objekte[oid], "runde": runde})
+        ablage.schreibe("eingereicht", oid, {"objekt": plan.objekte[oid], "runde": runde, "stand": stand})
     for oid in daten:
         ablage.schreibe("geaendert", oid, {"objekt": plan.objekte[oid]})
     if entfallen:
@@ -197,31 +197,36 @@ def ifc_optionen(ansicht_id=None):
     return opt
 
 
-def _mit_ausgeblendeten_durchbruechen(doc, ansicht, pruefset, mit_durchbruechen, export):
-    """Führt ``export()`` aus, während die Durchbrüche in der Ansicht ausgeblendet sind (Transaktion wird zurückgerollt)."""
+def _mit_ausgeblendeten_durchbruechen(doc, ansicht, pruefset, mit_durchbruechen, export, verstecken=None):
+    """Führt ``export()`` aus, während die Durchbrüche (und ``verstecken``) in der Ansicht ausgeblendet sind.
+
+    Die Transaktion wird immer zurückgerollt – die Ansicht bleibt unverändert.
+    """
     t = DB.Transaction(doc, "DBK: Export")
     t.Start()
     try:
+        ids = list(verstecken or [])
         if pruefset and not mit_durchbruechen:
-            ids = [e.Id for e in sammeln.elemente_im_pruefset(doc, pruefset)]
-            if ids:
-                ansicht.HideElements(sammeln._liste(ids))
+            ids += [e.Id for e in sammeln.elemente_im_pruefset(doc, pruefset)]
+        ids = [i for i in ids if not doc.GetElement(i).IsHidden(ansicht)]
+        if ids:
+            ansicht.HideElements(sammeln._liste(ids))
         doc.Regenerate()
         return export()
     finally:
         t.RollBack()
 
 
-def ifc_aus_ansicht(doc, ansicht, ordner, dateiname, pruefset=None, mit_durchbruechen=False):
+def ifc_aus_ansicht(doc, ansicht, ordner, dateiname, pruefset=None, mit_durchbruechen=False, verstecken=None):
     """Exportiert genau die sichtbaren Elemente der Ansicht als IFC (ohne Durchbrüche)."""
     ok = _mit_ausgeblendeten_durchbruechen(doc, ansicht, pruefset, mit_durchbruechen,
-                                           lambda: doc.Export(ordner, dateiname, ifc_optionen(ansicht.Id)))
+                                           lambda: doc.Export(ordner, dateiname, ifc_optionen(ansicht.Id)), verstecken)
     if not ok:
         raise RuntimeError("Revit hat den IFC-Export abgelehnt.")
     return os.path.join(ordner, dateiname if dateiname.lower().endswith(".ifc") else dateiname + ".ifc")
 
 
-def fbx_aus_ansicht(doc, ansicht, ordner, dateiname, pruefset=None):
+def fbx_aus_ansicht(doc, ansicht, ordner, dateiname, pruefset=None, verstecken=None):
     """Revit-eigener FBX-Export der 3D-Ansicht (ohne Durchbrüche). Deutlich schneller als IFC."""
     opt = DB.FBXExportOptions()
     opt.UseLevelsOfDetail = True
@@ -231,7 +236,7 @@ def fbx_aus_ansicht(doc, ansicht, ordner, dateiname, pruefset=None):
     ansichten = DB.ViewSet()
     ansichten.Insert(ansicht)
     ok = _mit_ausgeblendeten_durchbruechen(doc, ansicht, pruefset, False,
-                                           lambda: doc.Export(ordner, dateiname, ansichten, opt))
+                                           lambda: doc.Export(ordner, dateiname, ansichten, opt), verstecken)
     pfad = os.path.join(ordner, dateiname if dateiname.lower().endswith(".fbx") else dateiname + ".fbx")
     if ok is False or not os.path.isfile(pfad):
         raise RuntimeError("Revit hat den FBX-Export abgelehnt.")
@@ -251,10 +256,44 @@ def bauteil_infos(doc, ansicht, pruefset=None, fortschritt=None):
     Für FBX: der Viewer nimmt daraus Kategorien, Eigenschaften und die Ausrichtung.
     """
     durch = set(sammeln.eid(e.Id) for e in sammeln.elemente_im_pruefset(doc, pruefset or {}))
-    ebenen = dict((sammeln.eid(l.Id), l.Name) for l in DB.FilteredElementCollector(doc).OfClass(DB.Level))
     elemente = [e for e in DB.FilteredElementCollector(doc, ansicht.Id).WhereElementIsNotElementType()
                 if e.Category is not None and e.Category.CategoryType == DB.CategoryType.Model
-                and sammeln.eid(e.Id) not in durch]
+                and not isinstance(e, DB.RevitLinkInstance) and sammeln.eid(e.Id) not in durch]
+    return _infos(doc, elemente, None, "", fortschritt)
+
+
+def link_infos(doc, ansicht, link, fortschritt=None):
+    """Wie bauteil_infos, aber für die in der Ansicht sichtbaren Elemente einer Verknüpfung (Host-Koordinaten)."""
+    ldoc = link.GetLinkDocument()
+    if ldoc is None:
+        return {"bauteile": {}, "bbox_mm": None}
+    elemente = [e for e in DB.FilteredElementCollector(doc, ansicht.Id, link.Id).WhereElementIsNotElementType()
+                if e.Category is not None and e.Category.CategoryType == DB.CategoryType.Model]
+    return _infos(ldoc, elemente, link.GetTotalTransform(), "L%s:" % sammeln.eid(link.Id), fortschritt)
+
+
+def infos_vereinen(teile):
+    infos, gmin, gmax = {}, [1e18] * 3, [-1e18] * 3
+    for t in teile:
+        infos.update(t["bauteile"])
+        if t.get("bbox_mm"):
+            b = t["bbox_mm"]
+            gmin = [min(gmin[k], b[k]) for k in range(3)]
+            gmax = [max(gmax[k], b[k + 3]) for k in range(3)]
+    return {"bauteile": infos, "bbox_mm": gmin + gmax if infos else None}
+
+
+def _box(bb, transform):
+    if transform is None:
+        return (bb.Min.X, bb.Min.Y, bb.Min.Z, bb.Max.X, bb.Max.Y, bb.Max.Z)
+    ecken = [transform.OfPoint(DB.XYZ(x, y, z)) for x in (bb.Min.X, bb.Max.X)
+             for y in (bb.Min.Y, bb.Max.Y) for z in (bb.Min.Z, bb.Max.Z)]
+    return (min(p.X for p in ecken), min(p.Y for p in ecken), min(p.Z for p in ecken),
+            max(p.X for p in ecken), max(p.Y for p in ecken), max(p.Z for p in ecken))
+
+
+def _infos(doc, elemente, transform, praefix, fortschritt):
+    ebenen = dict((sammeln.eid(l.Id), l.Name) for l in DB.FilteredElementCollector(doc).OfClass(DB.Level))
     infos, gmin, gmax = {}, [1e18] * 3, [-1e18] * 3
     for i, e in enumerate(elemente):
         if fortschritt and i % 2000 == 0:
@@ -262,7 +301,7 @@ def bauteil_infos(doc, ansicht, pruefset=None, fortschritt=None):
         bb = e.get_BoundingBox(None)
         if bb is None:
             continue
-        b = [int(round(v * FUSS)) for v in (bb.Min.X, bb.Min.Y, bb.Min.Z, bb.Max.X, bb.Max.Y, bb.Max.Z)]
+        b = [int(round(v * FUSS)) for v in _box(bb, transform)]
         for k in range(3):
             gmin[k] = min(gmin[k], b[k])
             gmax[k] = max(gmax[k], b[k + 3])
@@ -280,8 +319,8 @@ def bauteil_infos(doc, ansicht, pruefset=None, fortschritt=None):
         g = _param_text(e, DB.BuiltInParameter.RBS_CALCULATED_SIZE)
         if g:
             d["g"] = g
-        infos[str(sammeln.eid(e.Id))] = d
-    return {"bauteile": infos, "bbox_mm": gmin + gmax}
+        infos[praefix + str(sammeln.eid(e.Id))] = d
+    return {"bauteile": infos, "bbox_mm": gmin + gmax if infos else None}
 
 
 FUSS = 304.8
@@ -326,7 +365,7 @@ def _kopieren(quelle, ziel, fortschritt=None):
 
 
 def datei_veroeffentlichen(doc, einst, pfad, kuerzel, quelle_titel, format_, geschosse=None, zusatz=None,
-                           version=None, fortschritt=None):
+                           version=None, fortschritt=None, name=None):
     """Legt eine Modelldatei unter modelle/<Kürzel>/<Hash>.<format> ab und schreibt das Ereignis.
 
     zusatz: optionale Bauteil-Infos (dict) – werden als <Hash>.json daneben gelegt (FBX).
@@ -346,6 +385,8 @@ def datei_veroeffentlichen(doc, einst, pfad, kuerzel, quelle_titel, format_, ges
              "ebenen": sammeln.ebenen(doc, geschosse), "groesse_mb": round(os.path.getsize(ziel) / 1e6, 2)}
     if version:
         daten["revit_version"] = version
+    if name:
+        daten["name"] = name
     if zusatz is not None:
         info = os.path.join(ordner, "%s.json" % h)
         text = json.dumps(zusatz, ensure_ascii=False, separators=(",", ":"))

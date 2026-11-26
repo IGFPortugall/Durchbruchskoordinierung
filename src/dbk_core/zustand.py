@@ -29,6 +29,7 @@ class ObjektZustand(object):
         self.ersteller_rolle = None
         self.geloescht = False
         self.runden = []             # IDs der Prüfrunden, in denen es eingereicht wurde
+        self.stand = None            # Name des Stands (Auswahlvorlage) beim letzten Einreichen
         self.letzte_einreichung = None   # Sortierschlüssel
         self.entscheidungen = {}     # Rolle -> letztes Status-Ereignis
         self.verlauf = []            # alle Ereignisse zu diesem Objekt (Chat + Status)
@@ -152,12 +153,19 @@ def berechne(ereignisse, projekt):
             d["firma"] = e["firma"]
             d["veroeffentlicht"] = e["zeit"]
             m = z.modelle.setdefault(d["modell"], {"besitzer": e["firma"], "aktuell": None,
-                                                   "versionen": []})
+                                                   "versionen": [], "ausrichtung": None})
             if m["besitzer"] != e["firma"]:
                 z.ignoriert.append(e)
                 continue
             m["versionen"].append(d)
             m["aktuell"] = d
+            continue
+        if art == ev.MODELL_AUSRICHTUNG:
+            m = z.modelle.get(e["daten"]["modell"])
+            if m is None or m["besitzer"] != e["firma"]:
+                z.ignoriert.append(e)
+                continue
+            m["ausrichtung"] = dict(e["daten"])
             continue
 
         o = alle.get(e["objekt"])
@@ -181,6 +189,8 @@ def berechne(ereignisse, projekt):
                     runde = e["daten"].get("runde")
                     if runde and runde not in o.runden:
                         o.runden.append(runde)
+                    if e["daten"].get("stand"):
+                        o.stand = e["daten"]["stand"]
             o.verlauf.append(e)
         elif art == ev.STATUS:
             o.entscheidungen[e["rolle"]] = e

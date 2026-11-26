@@ -144,7 +144,8 @@ def demo_fuellen(ordner, uhr):
     t = 10
     for oid, o in obj.items():
         ablage = elt if oid.startswith("ELT") else tga
-        schreibe(uhr, ablage, "12-01 09:%02d" % t, "eingereicht", oid, {"objekt": o, "runde": "R1"})
+        stand = "EG Rohbau" if o["ebene"] == E0 else "Obergeschosse"
+        schreibe(uhr, ablage, "12-01 09:%02d" % t, "eingereicht", oid, {"objekt": o, "runde": "R1", "stand": stand})
         t += 1
 
     def entscheide(ablage, wann, oid, wert, kommentar=None):
@@ -224,6 +225,7 @@ def sollwerte(ordner, projekt):
             "ignoriert": len(z.ignoriert),
             "verlauf_laengen": dict((oid, len(o.verlauf)) for oid, o in z.objekte.items()),
             "runden": sorted(z.runden),
+            "staende": dict((oid, o.stand) for oid, o in z.objekte.items()),
         },
     }
 

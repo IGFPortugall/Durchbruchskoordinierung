@@ -53,12 +53,13 @@ einen neuen Namen (Hash der Quelldatei).
 | `art` | `daten` | Wer |
 |---|---|---|
 | `pruefrunde_gestartet` | `{"runde", "name", "frist"}` | Ersteller |
-| `eingereicht` | `{"objekt": Objektdaten, "runde"}` | Besitzer (erste einreichende Firma) |
+| `eingereicht` | `{"objekt": Objektdaten, "runde", "stand"}` – `stand` = Name des Durchbruch-Stands (optional) | Besitzer (erste einreichende Firma) |
 | `geaendert` | `{"objekt": Objektdaten}` | Besitzer |
 | `geloescht` | `{}` | Besitzer |
 | `status` | `{"wert", "geometrie_hash", "kommentar", "kontext"}` | jede Rolle |
 | `nachricht` | `{"text"}` | jede Rolle |
-| `modell_veroeffentlicht` | `{"modell", "datei", "hash", "quelle", "stand", "ebenen", "plaene"}` | Besitzer des Modells (erste veröffentlichende Firma) |
+| `modell_veroeffentlicht` | `{"modell", "datei", "hash", "format", "name", "quelle", "stand", "ebenen", "info", "revit_version"}` | Besitzer des Modells (erste veröffentlichende Firma) |
+| `modell_ausrichtung` | `{"modell", "x_mm", "y_mm", "z_mm", "drehung_grad"}` – Verschiebung (Revit-Achsen) und Drehung um die senkrechte Achse durch die Modellmitte | nur Besitzer des Modells; alle anderen richten nur lokal im Browser aus |
 
 `kontext` (optional) im Status: Modellversionen, gegen die geprüft wurde, z. B.
 `{"ARC": "3f9a1c7e2b4d6a80", "TWP": "c01d..."}`.

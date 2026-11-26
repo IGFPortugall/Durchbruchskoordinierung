@@ -188,8 +188,21 @@
                   <Button x:Name="d_vorlage_weg" Content="Löschen" Margin="6,0,0,0"/>
                 </StackPanel>
                 <TextBlock Text="Auswahlvorlage" VerticalAlignment="Center" Margin="0,0,8,0" FontWeight="SemiBold"/>
-                <ComboBox x:Name="d_vorlage" ToolTip="Gespeicherte Auswahl, z. B. „EG Rohbau“. Neu hinzugekommene passende Durchbrüche werden automatisch angehakt."/>
+                <ComboBox x:Name="d_vorlage" ToolTip="Stand bzw. gespeicherte Auswahl, z. B. „EG Rohbau“. Neu hinzugekommene passende Durchbrüche werden automatisch angehakt. Im Viewer lässt sich jeder Stand einzeln ein- und ausblenden."/>
               </DockPanel>
+              <Border x:Name="d_quelle_box" DockPanel.Dock="Top" Background="#f4f4f5" CornerRadius="8" Padding="10,7" Margin="0,8,0,0">
+                <DockPanel>
+                  <TextBlock Text="Stand festlegen über" VerticalAlignment="Center" Margin="0,0,10,0" Foreground="{StaticResource Grau}"/>
+                  <RadioButton x:Name="d_q_filter" Content="Ebene und Häkchen" VerticalAlignment="Center" Margin="0,0,12,0" GroupName="quelle"/>
+                  <RadioButton x:Name="d_q_ansicht" Content="3D-Ansicht:" VerticalAlignment="Center" Margin="0,0,6,0" GroupName="quelle"
+                               ToolTip="Alle Durchbrüche, die in dieser 3D-Ansicht sichtbar sind, gehören zum Stand. In Revit ausblenden = nicht im Stand."/>
+                  <Button x:Name="d_ansicht_neu" DockPanel.Dock="Right" Content="Ansicht anlegen" Margin="6,0,0,0" Padding="8,3"
+                          ToolTip="Legt „DBK Stand – Name“ an: nur Durchbrüche, die aktuell angehakten sichtbar. Danach in Revit nach Bedarf aus-/einblenden."/>
+                  <Button x:Name="d_ansicht_lesen" DockPanel.Dock="Right" Content="Neu lesen" Margin="6,0,0,0" Padding="8,3"
+                          ToolTip="Sichtbare Durchbrüche der Ansicht neu einlesen (nach Änderungen in Revit)"/>
+                  <ComboBox x:Name="d_ansicht"/>
+                </DockPanel>
+              </Border>
               <DockPanel DockPanel.Dock="Top" Margin="0,10,0,0">
                 <TextBlock Text="Ebene" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="{StaticResource Grau}"/>
                 <ComboBox x:Name="d_ebene" Width="200"/>
@@ -210,66 +223,6 @@
                 </WrapPanel>
               </DockPanel>
               <TreeView x:Name="d_liste" BorderBrush="{StaticResource Linie}"/>
-            </DockPanel>
-          </Border>
-        </Grid>
-      </TabItem>
-
-      <!-- 3 Modell -->
-      <TabItem x:Name="t_modell">
-        <TabItem.Header><TextBlock x:Name="h_modell" Text="Modell"/></TabItem.Header>
-        <Grid>
-          <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="12"/><ColumnDefinition Width="340"/></Grid.ColumnDefinitions>
-          <Border Style="{StaticResource Karte}">
-            <DockPanel>
-              <TextBlock DockPanel.Dock="Top" Text="Was geht als Modell in den Viewer?" FontSize="14" FontWeight="SemiBold"/>
-              <TextBlock DockPanel.Dock="Top" Foreground="{StaticResource Grau}" TextWrapping="Wrap" Margin="0,4,0,8"
-                         Text="Jede Vorlage hat eine eigene 3D-Ansicht in Revit. Exportiert wird genau, was dort sichtbar ist – Durchbrüche nie. Im Viewer wird jede Vorlage ein eigenes, schaltbares Modell."/>
-              <Border DockPanel.Dock="Bottom" Background="#f4f4f5" CornerRadius="8" Padding="12" Margin="0,10,0,0">
-                <DockPanel>
-                  <Button x:Name="m_aktualisieren" DockPanel.Dock="Right" Style="{StaticResource Haupt}" Content="Modell aktualisieren"
-                          VerticalAlignment="Center" Padding="16,7"
-                          ToolTip="Exportiert alle angehakten Vorlagen und stellt sie in den Viewer – unabhängig vom Einreichen der Durchbrüche"/>
-                  <StackPanel>
-                    <TextBlock x:Name="m_hinweis" TextWrapping="Wrap" Foreground="{StaticResource Grau}"/>
-                    <CheckBox x:Name="m_erzwingen" Content="Auch exportieren, wenn sich das Modell nicht geändert hat" Margin="0,6,0,0"
-                              ToolTip="Normalerweise wird übersprungen, wenn Modellstand und Vorlage seit dem letzten Export gleich sind. Ansichtsänderungen ohne Speichern erkennt Revit nicht – dann hier anhaken."/>
-                  </StackPanel>
-                </DockPanel>
-              </Border>
-              <WrapPanel DockPanel.Dock="Bottom" Margin="0,8,0,0">
-                <Button x:Name="m_neu" Content="+ Vorlage" Margin="0,0,6,0"/>
-                <Button x:Name="m_weg" Content="Entfernen" Margin="0,0,6,0"/>
-                <Button x:Name="m_ansicht" Content="Exportansicht zeigen" ToolTip="Ansicht „DBK Paket – Name“ aufbauen und öffnen; danach in Revit nach Bedarf ausblenden, filtern, Schnittbox setzen"/>
-              </WrapPanel>
-              <ListBox x:Name="m_liste" BorderBrush="{StaticResource Linie}" DisplayMemberPath="text"/>
-            </DockPanel>
-          </Border>
-          <Border Grid.Column="2" Style="{StaticResource Karte}">
-            <DockPanel x:Name="m_editor">
-              <StackPanel DockPanel.Dock="Top">
-                <CheckBox x:Name="m_aktiv" Content="Beim Einreichen mitschicken" FontWeight="SemiBold"/>
-                <TextBlock Style="{StaticResource Etikett}" Text="Name"/>
-                <TextBox x:Name="m_name"/>
-                <TextBlock Style="{StaticResource Etikett}" Text="Kürzel im Viewer"/>
-                <TextBox x:Name="m_kuerzel"/>
-                <TextBlock Style="{StaticResource Etikett}" Text="Format"/>
-                <ComboBox x:Name="m_format"/>
-                <TextBlock x:Name="m_format_info" Foreground="{StaticResource Grau}" TextWrapping="Wrap" Margin="0,4,0,0" FontSize="11.5"/>
-                <TextBlock x:Name="m_stand" Foreground="{StaticResource Grau}" TextWrapping="Wrap" Margin="0,8,0,0"/>
-              </StackPanel>
-              <Button DockPanel.Dock="Bottom" x:Name="m_speichern" Content="Speichern" HorizontalAlignment="Left" Margin="0,8,0,0"/>
-              <Grid>
-                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition/><RowDefinition Height="Auto"/><RowDefinition/></Grid.RowDefinitions>
-                <TextBlock Style="{StaticResource Etikett}" Text="Gewerke"/>
-                <Border Grid.Row="1" BorderBrush="{StaticResource Linie}" BorderThickness="1">
-                  <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel x:Name="m_gewerke" Margin="6"/></ScrollViewer>
-                </Border>
-                <TextBlock Grid.Row="2" Style="{StaticResource Etikett}" Text="Ebenen (keine = alle)"/>
-                <Border Grid.Row="3" BorderBrush="{StaticResource Linie}" BorderThickness="1">
-                  <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel x:Name="m_ebenen" Margin="6"/></ScrollViewer>
-                </Border>
-              </Grid>
             </DockPanel>
           </Border>
         </Grid>

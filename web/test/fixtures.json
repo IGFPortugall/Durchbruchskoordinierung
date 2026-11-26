@@ -30,7 +30,7 @@
       "stand": "2026-11-10"
      },
      "firma": "Architekt XY",
-     "id": "561db73100a643639aca4f11835eac4a",
+     "id": "afc875ea0dbe420999d118db85d87d8b",
      "name": "A. Klein",
      "objekt": null,
      "rolle": "ARC",
@@ -48,7 +48,7 @@
       "stand": "2026-11-10"
      },
      "firma": "Tragwerk Z",
-     "id": "96f4a1fe82f14e10ad79f427baa84378",
+     "id": "4b1efc728f7c4cbd93aa19977bba8854",
      "name": "M. Weber",
      "objekt": null,
      "rolle": "TWP",
@@ -64,7 +64,7 @@
       "runde": "R1"
      },
      "firma": "IGF",
-     "id": "97c4cede9cbe4ea18030fb4ad4cc1653",
+     "id": "fd9af1d16dc74478bf4658421bb69c7d",
      "name": "T. Planer",
      "objekt": null,
      "rolle": "TGA",
@@ -111,10 +111,11 @@
         "tragend": true
        }
       },
-      "runde": "R1"
+      "runde": "R1",
+      "stand": "EG Rohbau"
      },
      "firma": "IGF",
-     "id": "86aa45b20fef4d93adaf5a634183e74c",
+     "id": "e86fa8834b194c108d92339dcb8f8606",
      "name": "T. Planer",
      "objekt": "HLS:db-0001",
      "rolle": "TGA",
@@ -161,10 +162,11 @@
         "tragend": true
        }
       },
-      "runde": "R1"
+      "runde": "R1",
+      "stand": "EG Rohbau"
      },
      "firma": "IGF",
-     "id": "5a1bac1810a5401d8c9006a5ec1c5408",
+     "id": "1183c45684bc412782a89c2e8ba841ca",
      "name": "T. Planer",
      "objekt": "HLS:db-0002",
      "rolle": "TGA",
@@ -210,10 +212,11 @@
         "tragend": false
        }
       },
-      "runde": "R1"
+      "runde": "R1",
+      "stand": "EG Rohbau"
      },
      "firma": "IGF",
-     "id": "72cb71dc753440ec8a497c515621cd67",
+     "id": "a8f4a0bb992940828d62f868a824dc68",
      "name": "T. Planer",
      "objekt": "HLS:db-0003",
      "rolle": "TGA",
@@ -260,10 +263,11 @@
         "tragend": false
        }
       },
-      "runde": "R1"
+      "runde": "R1",
+      "stand": "EG Rohbau"
      },
      "firma": "IGF",
-     "id": "d7947ed03662490480a5ac21af3f2902",
+     "id": "54648c2b2012406bbbfbb5a4694abe62",
      "name": "T. Planer",
      "objekt": "HLS:db-0004",
      "rolle": "TGA",
@@ -310,10 +314,11 @@
         "tragend": true
        }
       },
-      "runde": "R1"
+      "runde": "R1",
+      "stand": "EG Rohbau"
      },
      "firma": "IGF",
-     "id": "d5f0b9c5f51f45e9890c1af4a7d105e4",
+     "id": "c12d49762d8e4315b4a4a6ab0e06eed6",
      "name": "T. Planer",
      "objekt": "HLS:db-0005",
      "rolle": "TGA",
@@ -360,10 +365,11 @@
         "tragend": true
        }
       },
-      "runde": "R1"
+      "runde": "R1",
+      "stand": "Obergeschosse"
      },
      "firma": "IGF",
-     "id": "7ba07ce803b645d39ccd5e50e9dc2851",
+     "id": "dc2503ac20d3446f8b8b6af6ae3f90fb",
      "name": "T. Planer",
      "objekt": "HLS:db-0006",
      "rolle": "TGA",
@@ -410,10 +416,11 @@
         "tragend": true
        }
       },
-      "runde": "R1"
+      "runde": "R1",
+      "stand": "Obergeschosse"
      },
      "firma": "IGF",
-     "id": "bc1c89747fe1463e9fc372ddad06b404",
+     "id": "9d2c63c510834b169dec1367216de686",
      "name": "T. Planer",
      "objekt": "HLS:db-0007",
      "rolle": "TGA",
@@ -460,10 +467,11 @@
         "tragend": true
        }
       },
-      "runde": "R1"
+      "runde": "R1",
+      "stand": "Obergeschosse"
      },
      "firma": "IGF",
-     "id": "23e5a9bbaf714fbe8db6119fab644ac7",
+     "id": "3af1d795a1f7477589bbd26e1defd1b5",
      "name": "S. Elektra",
      "objekt": "ELT:db-0101",
      "rolle": "ELT",
@@ -483,7 +491,7 @@
       "wert": "freigegeben"
      },
      "firma": "Architekt XY",
-     "id": "d6d0e1e055be4cba9c7eeffb30a6c0e4",
+     "id": "33a2954d35754816a9e814f33b9b03fb",
      "name": "A. Klein",
      "objekt": "HLS:db-0001",
      "rolle": "ARC",
@@ -503,7 +511,7 @@
       "wert": "freigegeben"
      },
      "firma": "Architekt XY",
-     "id": "f34261dbb5f44d7db6e60fea76d82cfd",
+     "id": "45a028f9dde7418c8832a267142bf39d",
      "name": "A. Klein",
      "objekt": "HLS:db-0004",
      "rolle": "ARC",
@@ -523,7 +531,7 @@
       "wert": "zurueckgestellt"
      },
      "firma": "Architekt XY",
-     "id": "9d72f060c7324b73b15e4c76e2934551",
+     "id": "934be6ac0a1144d2a5ad7937fa6c988d",
      "name": "A. Klein",
      "objekt": "HLS:db-0006",
      "rolle": "ARC",
@@ -543,7 +551,7 @@
       "wert": "freigegeben"
      },
      "firma": "Architekt XY",
-     "id": "b4f5ff7e70b1466fa5b80a2362e57c20",
+     "id": "5e9eca62f22b42a6a1571bd93d5c05ab",
      "name": "A. Klein",
      "objekt": "ELT:db-0101",
      "rolle": "ARC",
@@ -563,7 +571,7 @@
       "wert": "freigegeben"
      },
      "firma": "Tragwerk Z",
-     "id": "0238df11ea1c4209a3fcb362a3b398ab",
+     "id": "43572bab7b974315b0b0537f21328c26",
      "name": "M. Weber",
      "objekt": "HLS:db-0001",
      "rolle": "TWP",
@@ -577,7 +585,7 @@
       "text": "Liegt direkt neben dem Unterzug in Achse 3."
      },
      "firma": "Tragwerk Z",
-     "id": "fc27f302798a4371baee592d0227396f",
+     "id": "3bfefbe9e02544299ae3f98ebf5ae725",
      "name": "M. Weber",
      "objekt": "HLS:db-0002",
      "rolle": "TWP",
@@ -597,7 +605,7 @@
       "wert": "abgelehnt"
      },
      "firma": "Tragwerk Z",
-     "id": "a0e4bf35144245f58a6dd91202e20bb0",
+     "id": "3a28f233f7084e2b85a0617c46df58b2",
      "name": "M. Weber",
      "objekt": "HLS:db-0002",
      "rolle": "TWP",
@@ -617,7 +625,7 @@
       "wert": "abgelehnt"
      },
      "firma": "Tragwerk Z",
-     "id": "ef9c25c62ece4cdf962f721db71c00d6",
+     "id": "691eda7ed4e14d86871f81cd8d08be13",
      "name": "M. Weber",
      "objekt": "HLS:db-0005",
      "rolle": "TWP",
@@ -637,7 +645,7 @@
       "wert": "freigegeben"
      },
      "firma": "Tragwerk Z",
-     "id": "cb96c0ccae9848e7be2ae1e3ead5cf95",
+     "id": "da3f41ca21ab49d38b0291f39b5bae30",
      "name": "M. Weber",
      "objekt": "ELT:db-0101",
      "rolle": "TWP",
@@ -651,7 +659,7 @@
       "text": "Prüfen wir, ggf. Kanal nach unten verziehen."
      },
      "firma": "IGF",
-     "id": "ce3297bbe4474ea9ba1bacff4ab7a2b5",
+     "id": "bc9fc671fec846e09ae483c64226c7bd",
      "name": "T. Planer",
      "objekt": "HLS:db-0002",
      "rolle": "TGA",
@@ -665,7 +673,7 @@
       "text": "Um 60 cm nach Osten verschoben."
      },
      "firma": "IGF",
-     "id": "93ffd0f373184540bb7e9f1aedd99193",
+     "id": "74ea04d378394edfb03352a783fbaae1",
      "name": "T. Planer",
      "objekt": "HLS:db-0005",
      "rolle": "TGA",
@@ -715,7 +723,7 @@
       "runde": "R1"
      },
      "firma": "IGF",
-     "id": "6489ea96e44942459d89966c811703c7",
+     "id": "53d5899d0ac24a13823a86f05811aeaf",
      "name": "T. Planer",
      "objekt": "HLS:db-0005",
      "rolle": "TGA",
@@ -735,7 +743,7 @@
       "wert": "freigegeben"
      },
      "firma": "Brandschutz B",
-     "id": "622ab9d42ee64216999292d7cec224d4",
+     "id": "2bbebf55d8f240f68b470b2e5d8c7379",
      "name": "K. Feuer",
      "objekt": "HLS:db-0005",
      "rolle": "BS",
@@ -957,6 +965,16 @@
     "runden": [
      "R1"
     ],
+    "staende": {
+     "ELT:db-0101": "Obergeschosse",
+     "HLS:db-0001": "EG Rohbau",
+     "HLS:db-0002": "EG Rohbau",
+     "HLS:db-0003": "EG Rohbau",
+     "HLS:db-0004": "EG Rohbau",
+     "HLS:db-0005": "EG Rohbau",
+     "HLS:db-0006": "Obergeschosse",
+     "HLS:db-0007": "Obergeschosse"
+    },
     "verlauf_laengen": {
      "ELT:db-0101": 3,
      "HLS:db-0001": 3,
@@ -1092,7 +1110,7 @@
       "wert": "abgelehnt"
      },
      "firma": "Architekt XY",
-     "id": "96f48422cab9498a8b48cc2c28bd898e",
+     "id": "32ddb9c8e2f74a32b4d0920222f71d93",
      "name": "A",
      "objekt": "X:a",
      "rolle": "ARC",
@@ -1141,7 +1159,7 @@
       }
      },
      "firma": "IGF",
-     "id": "da9172a0a55844f88c7d3b7b9cc46fd5",
+     "id": "f3e7c6d5c17340e8b70ce7c43e9ac358",
      "name": "T",
      "objekt": "X:a",
      "rolle": "TGA",
@@ -1190,7 +1208,7 @@
       }
      },
      "firma": "IGF",
-     "id": "809933e932204301aedcd0bc23cc7303",
+     "id": "8b5b5384a533480ab03752f96a03bfa6",
      "name": "T",
      "objekt": "X:g",
      "rolle": "TGA",
@@ -1202,7 +1220,7 @@
      "art": "geloescht",
      "daten": {},
      "firma": "Architekt XY",
-     "id": "f53dec01ef724409a9f8ac0a600ed730",
+     "id": "7b94aa5d248242988bd6434d9c8db5f2",
      "name": "A",
      "objekt": "X:a",
      "rolle": "ARC",
@@ -1251,7 +1269,7 @@
       }
      },
      "firma": "Architekt XY",
-     "id": "67479d2413a64b6cb9729cb89e097841",
+     "id": "1b36f1cc44a045009810de5799302166",
      "name": "A",
      "objekt": "X:g",
      "rolle": "ARC",
@@ -1266,7 +1284,7 @@
       "wert": "freigegeben"
      },
      "firma": "Tragwerk Z",
-     "id": "48859feff2f441558510e27267bd0ccc",
+     "id": "1a09e90920f04b5abf348231de57baf4",
      "name": "W",
      "objekt": "X:a",
      "rolle": "TWP",
@@ -1315,7 +1333,7 @@
       }
      },
      "firma": "IGF",
-     "id": "0cea2610462f401ebc8c97d53bc92bbe",
+     "id": "d3bfe79a53e848f4bc3492e21ef42203",
      "name": "T",
      "objekt": "X:a",
      "rolle": "TGA",
@@ -1330,7 +1348,7 @@
       "wert": "freigegeben"
      },
      "firma": "Tragwerk Z",
-     "id": "adb75133e57747b8b182e54cf10225de",
+     "id": "f827838994254965bf7f7858320f6561",
      "name": "W",
      "objekt": "X:a",
      "rolle": "TWP",
@@ -1345,7 +1363,7 @@
       "wert": "freigegeben"
      },
      "firma": "Architekt XY",
-     "id": "332153f63cde43d48048cb141cdc3552",
+     "id": "ee2b5a1f1f2a41c598f8a639d7efe437",
      "name": "A",
      "objekt": "X:g",
      "rolle": "ARC",
@@ -1360,7 +1378,7 @@
       "wert": "zurueckgestellt"
      },
      "firma": "Bauherr",
-     "id": "85aad0c20ab64b7491a9132c147e2e5a",
+     "id": "d0389d6da5c34f899d53fa0be14d9f62",
      "name": "B",
      "objekt": "X:g",
      "rolle": "BH",
@@ -1409,7 +1427,7 @@
       }
      },
      "firma": "IGF",
-     "id": "0a73ec22f13346439043360ee4371fde",
+     "id": "15927a654a9c4c5790af2804dd3d1204",
      "name": "T",
      "objekt": "X:d",
      "rolle": "TGA",
@@ -1421,7 +1439,7 @@
      "art": "geloescht",
      "daten": {},
      "firma": "IGF",
-     "id": "7ce278fea9af47938877b52a7092c506",
+     "id": "c16664f3fd17473e9d344822096de08b",
      "name": "T",
      "objekt": "X:d",
      "rolle": "TGA",
@@ -1470,7 +1488,7 @@
       }
      },
      "firma": "IGF",
-     "id": "1bf9c145d301437b98fe988bacbe0188",
+     "id": "729e3e00723440e7be1ada75cc4f7aa0",
      "name": "T",
      "objekt": "X:e",
      "rolle": "TGA",
@@ -1482,7 +1500,7 @@
      "art": "geloescht",
      "daten": {},
      "firma": "IGF",
-     "id": "aedc2cd489824ac38f29bab3a084b8bb",
+     "id": "33c3595e922f4b1d8d25d64f6e1b16d1",
      "name": "T",
      "objekt": "X:e",
      "rolle": "TGA",
@@ -1531,7 +1549,7 @@
       }
      },
      "firma": "IGF",
-     "id": "b767c1d5fe8847868a2765b16a9d66ee",
+     "id": "ed3fd0c3f2c64882ba7bffd03f9b67e0",
      "name": "T",
      "objekt": "X:e",
      "rolle": "TGA",
@@ -1546,7 +1564,7 @@
       "wert": "abgelehnt"
      },
      "firma": "Architekt XY",
-     "id": "8bada54ca5154b179d8e4a4abd0608ac",
+     "id": "e3fb8f8518cb4d22a14b87fc53379b7e",
      "name": "A",
      "objekt": "X:e",
      "rolle": "ARC",
@@ -1562,7 +1580,7 @@
       "modell": "ARC"
      },
      "firma": "Architekt XY",
-     "id": "7b297f387bee49228e5e9c986f5ee2f9",
+     "id": "829879ca875e4a8ca605118a91451cbc",
      "name": "A",
      "objekt": null,
      "rolle": "ARC",
@@ -1578,7 +1596,7 @@
       "modell": "ARC"
      },
      "firma": "Tragwerk Z",
-     "id": "a4588b6924564360b4603045dbde1090",
+     "id": "3e109cc5d4704151a39f85052c796832",
      "name": "W",
      "objekt": null,
      "rolle": "TWP",
@@ -1675,6 +1693,11 @@
      "X:g"
     ],
     "runden": [],
+    "staende": {
+     "X:a": null,
+     "X:e": null,
+     "X:g": null
+    },
     "verlauf_laengen": {
      "X:a": 5,
      "X:e": 4,

@@ -18,7 +18,7 @@ Ein Ereignis ist ein dict, das 1:1 als JSON-Datei gespeichert wird:
 
 Arten und ihre ``daten``:
   pruefrunde_gestartet  {"runde": id, "name": str, "frist": "YYYY-MM-DD" | null}
-  eingereicht           {"objekt": Objektdaten, "runde": id | null}
+  eingereicht           {"objekt": Objektdaten, "runde": id | null, "stand": Name | null}
   geaendert             {"objekt": Objektdaten}
   geloescht             {}
   status                {"wert": Status-ID, "geometrie_hash": str, "kommentar": str | null}
@@ -48,12 +48,13 @@ STATUS = "status"
 NACHRICHT = "nachricht"
 
 MODELL_VEROEFFENTLICHT = "modell_veroeffentlicht"
+MODELL_AUSRICHTUNG = "modell_ausrichtung"   # {"modell", "versatz_m": [x, y, z], "drehung_grad"} – nur Besitzer
 
 ARTEN = (PRUEFRUNDE_GESTARTET, EINGEREICHT, GEAENDERT, GELOESCHT, STATUS, NACHRICHT,
-         MODELL_VEROEFFENTLICHT)
+         MODELL_VEROEFFENTLICHT, MODELL_AUSRICHTUNG)
 
 # Arten ohne Bezug zu einem Prüfobjekt
-OHNE_OBJEKT = (PRUEFRUNDE_GESTARTET, MODELL_VEROEFFENTLICHT)
+OHNE_OBJEKT = (PRUEFRUNDE_GESTARTET, MODELL_VEROEFFENTLICHT, MODELL_AUSRICHTUNG)
 
 PFLICHTFELDER = ("schema", "id", "zeit", "seq", "firma", "name", "rolle", "art", "objekt", "daten")
 
@@ -83,6 +84,8 @@ def baue(absender, art, objekt, daten, seq, zeitpunkt=None):
         for feld in ("modell", "datei", "hash"):
             if not (daten or {}).get(feld):
                 raise ValueError("Modell-Veröffentlichung braucht '%s'." % feld)
+    if art == MODELL_AUSRICHTUNG and not (daten or {}).get("modell"):
+        raise ValueError("Modell-Ausrichtung braucht 'modell'.")
     if art in (EINGEREICHT, GEAENDERT):
         obj = (daten or {}).get("objekt") or {}
         if not obj.get("geometrie_hash"):

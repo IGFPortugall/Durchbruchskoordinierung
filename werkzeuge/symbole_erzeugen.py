@@ -122,6 +122,7 @@ def viewer(d, f):
 # Ein Knopf im Menüband; die übrigen Zeichnungen bleiben als Vorrat für spätere Knöpfe.
 SYMBOLE = {
     "Koordination": pruef_manager,
+    "Modelle": modell,
 }
 
 

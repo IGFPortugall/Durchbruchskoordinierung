@@ -132,6 +132,16 @@ class AblaufTest(OrdnerTest):
         with self.assertRaises(ValueError):
             self.arc.schreibe("modell_veroeffentlicht", None, {"modell": "ARC"})
 
+    def test_stand_und_ausrichtung(self):
+        self.tga.schreibe("eingereicht", OID, {"objekt": objekt("TGA-0042"), "runde": "R1", "stand": "EG Rohbau"})
+        self.arc.schreibe("modell_veroeffentlicht", None, {"modell": "ARC", "datei": "a.fbx", "hash": "a"})
+        self.twp.schreibe("modell_ausrichtung", None, {"modell": "ARC", "versatz_m": [9, 9, 9], "drehung_grad": 90})
+        self.arc.schreibe("modell_ausrichtung", None, {"modell": "ARC", "versatz_m": [1, 2, 0], "drehung_grad": 5})
+        z = self.zustand()
+        self.assertEqual(z.objekte[OID].stand, "EG Rohbau")
+        self.assertEqual(z.modelle["ARC"]["ausrichtung"]["versatz_m"], [1, 2, 0])
+        self.assertEqual(len(z.ignoriert), 1)
+
     def test_verlauf_ist_chronologisch(self):
         self.einreichen()
         self.twp.schreibe("nachricht", OID, {"text": "Frage zur Lage"})
