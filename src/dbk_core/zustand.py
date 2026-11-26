@@ -29,7 +29,8 @@ class ObjektZustand(object):
         self.ersteller_rolle = None
         self.geloescht = False
         self.runden = []             # IDs der Prüfrunden, in denen es eingereicht wurde
-        self.stand = None            # Name des Stands (Auswahlvorlage) beim letzten Einreichen
+        self.stand = None            # Name des Stands beim letzten Einreichen
+        self.einreichung = None      # bei der letzten Stand-Einreichung: "neu" | "geaendert" | "unveraendert"
         self.letzte_einreichung = None   # Sortierschlüssel
         self.entscheidungen = {}     # Rolle -> letztes Status-Ereignis
         self.verlauf = []            # alle Ereignisse zu diesem Objekt (Chat + Status)
@@ -52,6 +53,7 @@ class Zustand(object):
         self.objekte = {}    # nur aktive (eingereicht, nicht gelöscht)
         self.runden = {}     # Runden-ID -> Daten der Runde
         self.modelle = {}    # Modell-Kürzel -> {"besitzer", "aktuell", "versionen"}
+        self.staende = {}    # "<Firma>|<Stand>" -> {"firma", "stand", "zeit", "runde", "anzahl"}
         self.ignoriert = []  # Ereignisse, die gegen die Regeln verstoßen
 
     # ------------------------------------------------------------ Auswertung
@@ -134,6 +136,57 @@ class Zustand(object):
         return o.letzte_einreichung is None or o.letzte_einreichung < letzte_ablehnung
 
 
+def _stand_eingereicht(z, alle, e):
+    """Momentaufnahme eines Stands.
+
+    - ``objekte`` (Neue/Geänderte): wie „eingereicht“; bei gleichem geometrie_hash nur Datenabgleich
+      (zählt nicht als erneute Einreichung, Entscheidungen bleiben).
+    - übrige ``mitglieder``: bestätigt („unverändert“), gehören jetzt zu diesem Stand.
+    - Objekte der Firma, die bisher zu diesem Stand gehörten und fehlen, fallen heraus.
+    """
+    firma, d = e["firma"], e["daten"]
+    stand = d["stand"] or None
+    objekte = d.get("objekte") or {}
+    mitglieder = set(d.get("mitglieder") or [])
+    schluessel = ev.sortierschluessel(e)
+    runde = d.get("runde")
+    anzahl = 0
+    for oid in sorted(mitglieder):
+        o = alle.get(oid)
+        neu_daten = objekte.get(oid)
+        if neu_daten is not None:
+            if o is None:
+                o = alle[oid] = ObjektZustand(oid)
+            if o.besitzer is None:
+                o.besitzer, o.ersteller_rolle = firma, e["rolle"]
+            if o.besitzer != firma:
+                continue
+            war_aktiv = o.daten is not None and not o.geloescht
+            if war_aktiv and o.geometrie_hash == neu_daten.get("geometrie_hash"):
+                o.einreichung = "unveraendert"
+            else:
+                o.einreichung = "geaendert" if war_aktiv else "neu"
+                o.letzte_einreichung = schluessel
+                if runde and runde not in o.runden:
+                    o.runden.append(runde)
+                o.verlauf.append(dict(e, art=ev.EINGEREICHT, objekt=oid,
+                                      daten={"objekt": neu_daten, "runde": runde, "stand": d["stand"],
+                                             "einreichung": o.einreichung}))
+            o.daten = dict(neu_daten)
+            o.geloescht = False
+        else:
+            if o is None or o.besitzer != firma or o.daten is None or o.geloescht:
+                continue                    # Unverändert geht nur für Bestehendes
+            o.einreichung = "unveraendert"
+        o.stand = stand
+        anzahl += 1
+    for oid, o in alle.items():
+        if o.besitzer == firma and o.stand == stand and not o.geloescht and oid not in mitglieder:
+            o.geloescht = True
+    z.staende["%s|%s" % (firma, d["stand"])] = {"firma": firma, "stand": d["stand"], "zeit": e["zeit"],
+                                                "runde": runde, "anzahl": anzahl}
+
+
 def berechne(ereignisse, projekt):
     """Faltet alle Ereignisse (beliebige Reihenfolge) zu einem ``Zustand``."""
     z = Zustand(projekt)
@@ -166,6 +219,24 @@ def berechne(ereignisse, projekt):
                 z.ignoriert.append(e)
                 continue
             m["ausrichtung"] = dict(e["daten"])
+            continue
+        if art == ev.MODELL_ENTFERNT:
+            m = z.modelle.get(e["daten"]["modell"])
+            if m is None or m["besitzer"] != e["firma"]:
+                z.ignoriert.append(e)
+                continue
+            del z.modelle[e["daten"]["modell"]]   # gelöscht ist gelöscht; neu veröffentlichen beginnt von vorn
+            continue
+        if art == ev.STAND_EINGEREICHT:
+            _stand_eingereicht(z, alle, e)
+            continue
+        if art == ev.STAND_ZURUECKGEZOGEN:
+            stand = e["daten"]["stand"] or None
+            for o in alle.values():
+                if o.besitzer == e["firma"] and not o.geloescht and o.stand == stand:
+                    o.geloescht = True
+                    o.entscheidungen = {}     # zurückgezogen: erneutes Einreichen beginnt von vorn
+            z.staende.pop("%s|%s" % (e["firma"], stand or ""), None)
             continue
 
         o = alle.get(e["objekt"])

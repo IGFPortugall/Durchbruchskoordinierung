@@ -23,6 +23,9 @@ Arten und ihre ``daten``:
   geloescht             {}
   status                {"wert": Status-ID, "geometrie_hash": str, "kommentar": str | null}
   nachricht             {"text": str}
+  stand_eingereicht     {"stand": Name, "runde": id | null, "mitglieder": [oid, ...],
+                         "objekte": {oid: Objektdaten}}   – nur Neue/Geänderte mit Daten
+  stand_zurueckgezogen  {"stand": Name}
   modell_veroeffentlicht {"modell": "ARC", "datei": "modelle/ARC/<hash>.frag",
                           "hash": str, "quelle": "ARC.ifc", "stand": str,
                           "ebenen": [{"name", "hoehe_mm"}], "plaene": [...]}
@@ -48,13 +51,20 @@ STATUS = "status"
 NACHRICHT = "nachricht"
 
 MODELL_VEROEFFENTLICHT = "modell_veroeffentlicht"
-MODELL_AUSRICHTUNG = "modell_ausrichtung"   # {"modell", "versatz_m": [x, y, z], "drehung_grad"} – nur Besitzer
+MODELL_AUSRICHTUNG = "modell_ausrichtung"   # {"modell", "x_mm", "y_mm", "z_mm", "drehung_grad"} – nur Besitzer
+MODELL_ENTFERNT = "modell_entfernt"         # {"modell"} – nur Besitzer; Modell verschwindet für alle
+
+# Stand als Momentaufnahme: alle Mitglieder; Objektdaten nur für Neue/Geänderte.
+# Was vorher im Stand war und fehlt, fällt heraus.
+STAND_EINGEREICHT = "stand_eingereicht"     # {"stand", "runde", "mitglieder": [oid], "objekte": {oid: Objektdaten}}
+STAND_ZURUECKGEZOGEN = "stand_zurueckgezogen"   # {"stand"} – alle Objekte des Stands fallen heraus
 
 ARTEN = (PRUEFRUNDE_GESTARTET, EINGEREICHT, GEAENDERT, GELOESCHT, STATUS, NACHRICHT,
-         MODELL_VEROEFFENTLICHT, MODELL_AUSRICHTUNG)
+         MODELL_VEROEFFENTLICHT, MODELL_AUSRICHTUNG, MODELL_ENTFERNT, STAND_EINGEREICHT, STAND_ZURUECKGEZOGEN)
 
 # Arten ohne Bezug zu einem Prüfobjekt
-OHNE_OBJEKT = (PRUEFRUNDE_GESTARTET, MODELL_VEROEFFENTLICHT, MODELL_AUSRICHTUNG)
+OHNE_OBJEKT = (PRUEFRUNDE_GESTARTET, MODELL_VEROEFFENTLICHT, MODELL_AUSRICHTUNG, MODELL_ENTFERNT,
+               STAND_EINGEREICHT, STAND_ZURUECKGEZOGEN)
 
 PFLICHTFELDER = ("schema", "id", "zeit", "seq", "firma", "name", "rolle", "art", "objekt", "daten")
 
@@ -84,8 +94,18 @@ def baue(absender, art, objekt, daten, seq, zeitpunkt=None):
         for feld in ("modell", "datei", "hash"):
             if not (daten or {}).get(feld):
                 raise ValueError("Modell-Veröffentlichung braucht '%s'." % feld)
-    if art == MODELL_AUSRICHTUNG and not (daten or {}).get("modell"):
-        raise ValueError("Modell-Ausrichtung braucht 'modell'.")
+    if art in (MODELL_AUSRICHTUNG, MODELL_ENTFERNT) and not (daten or {}).get("modell"):
+        raise ValueError("Ereignis '%s' braucht 'modell'." % art)
+    if art in (STAND_EINGEREICHT, STAND_ZURUECKGEZOGEN) and (daten or {}).get("stand") is None:
+        raise ValueError("Ereignis '%s' braucht 'stand' (\"\" = ohne Stand)." % art)
+    if art == STAND_EINGEREICHT:
+        mitglieder = daten.get("mitglieder")
+        objekte = daten.get("objekte") or {}
+        if not isinstance(mitglieder, list):
+            raise ValueError("Stand-Einreichung braucht die Liste 'mitglieder'.")
+        for oid, obj in objekte.items():
+            if oid not in mitglieder or not (obj or {}).get("geometrie_hash"):
+                raise ValueError("Stand-Einreichung: '%s' fehlt in 'mitglieder' oder hat keinen geometrie_hash." % oid)
     if art in (EINGEREICHT, GEAENDERT):
         obj = (daten or {}).get("objekt") or {}
         if not obj.get("geometrie_hash"):

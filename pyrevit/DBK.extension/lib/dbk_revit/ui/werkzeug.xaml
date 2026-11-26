@@ -131,6 +131,9 @@
                 <Button x:Name="p_ordner_waehlen" DockPanel.Dock="Right" Content="Wählen …" Margin="6,0,0,0"/>
                 <TextBox x:Name="p_ordner"/>
               </DockPanel>
+              <TextBlock x:Name="p_projekt_info" TextWrapping="Wrap" Margin="0,6,0,0" FontSize="12"/>
+              <TextBlock Style="{StaticResource Etikett}" Text="Projektname (sehen alle – im Viewer und in jedem Revit-Fenster)"/>
+              <TextBox x:Name="p_projektname" ToolTip="Steht im Projektordner (projekt.json). Ändern gilt für alle Beteiligten."/>
               <TextBlock Style="{StaticResource Etikett}" Text="Name"/>
               <TextBox x:Name="p_name"/>
               <Grid>
@@ -141,31 +144,93 @@
               <TextBlock Style="{StaticResource Etikett}" Text="Kürzel dieses Modells (z. B. HLS, ELT, ARC)"/>
               <TextBox x:Name="p_kuerzel"/>
               <CheckBox x:Name="p_plant" Margin="0,14,0,0" Content="Ich plane selbst Durchbrüche (Reiter „Durchbrüche“ anzeigen)"/>
+              <Button x:Name="p_speichern" Style="{StaticResource Haupt}" Content="Übernehmen" HorizontalAlignment="Left" Margin="0,18,0,0"/>
             </StackPanel>
             <StackPanel Grid.Column="2">
-              <TextBlock Text="Ansichten in Revit" FontSize="15" FontWeight="SemiBold"/>
-              <TextBlock Style="{StaticResource Etikett}" Text="Vorlage für 2D-Prüfansichten (Grundriss)"/>
-              <ComboBox x:Name="p_vorlage_2d"/>
-              <TextBlock Style="{StaticResource Etikett}" Text="Vorlage für die 3D-Prüfansicht"/>
-              <ComboBox x:Name="p_vorlage_3d"/>
-              <DockPanel Margin="0,14,0,3">
-                <Button x:Name="p_geschoss_vorschlag" DockPanel.Dock="Right" Content="Vorschlag" Padding="8,2"
-                        ToolTip="Hilfsebenen (OK, UK, RD, RB, FBH, Hohlkörper, NN …) abwählen"/>
-                <TextBlock Text="Geschosse – welche Ebenen zählen? (Hilfsebenen zusammenfassen)" Foreground="{StaticResource Grau}"
-                           FontSize="11.5" VerticalAlignment="Center" TextWrapping="Wrap"/>
-              </DockPanel>
-              <Border BorderBrush="{StaticResource Linie}" BorderThickness="1" Height="170">
-                <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel x:Name="p_geschosse" Margin="6"/></ScrollViewer>
-              </Border>
-              <TextBlock Foreground="{StaticResource Grau}" TextWrapping="Wrap" Margin="0,6,0,0" FontSize="11.5"
-                         Text="Ein Durchbruch gehört zum nächsten Geschoss darunter. Das Werkzeug legt eigene Ansichten an („DBK …“); bestehende Ansichten bleiben unverändert."/>
-              <Button x:Name="p_speichern" Style="{StaticResource Haupt}" Content="Übernehmen" HorizontalAlignment="Left" Margin="0,16,0,0"/>
+              <TextBlock Text="So geht es weiter" FontSize="15" FontWeight="SemiBold"/>
+              <TextBlock TextWrapping="Wrap" Foreground="{StaticResource Grau}" Margin="0,10,0,0" LineHeight="20"
+                         Text="1.  Projektordner wählen – damit ist das Projekt bestimmt. Alle Beteiligten wählen denselben (synchronisierten) Ordner. Die Zuordnung wird im Revit-Modell gespeichert."/>
+              <TextBlock TextWrapping="Wrap" Foreground="{StaticResource Grau}" Margin="0,6,0,0" LineHeight="20"
+                         Text="2.  Ansichten: welche 3D-Ansichten (Modelle) und 2D-Ansichten (Grundrisse, Schnitte mit Beschriftung) im Viewer zu sehen sind."/>
+              <TextBlock TextWrapping="Wrap" Foreground="{StaticResource Grau}" Margin="0,6,0,0" LineHeight="20"
+                         Text="3.  Durchbrüche: Familien festlegen, Stand = 3D-Ansicht wählen."/>
+              <TextBlock TextWrapping="Wrap" Foreground="{StaticResource Grau}" Margin="0,6,0,0" LineHeight="20"
+                         Text="4.  Einreichen – geprüft wird im Viewer."/>
+              <TextBlock TextWrapping="Wrap" Foreground="{StaticResource Grau}" Margin="0,14,0,0" FontSize="11.5"
+                         Text="Geschosse ermittelt das Werkzeug aus den Ebenen (Hilfsebenen wie OK, UK, RD, FBH werden zusammengefasst). Ein Durchbruch gehört zum nächsten Geschoss darunter."/>
             </StackPanel>
           </Grid>
         </Border>
       </TabItem>
 
-      <!-- 2 Durchbrüche -->
+      <!-- 2 Ansichten für den Viewer -->
+      <TabItem x:Name="t_ansichten">
+        <TabItem.Header><TextBlock Text="Ansichten"/></TabItem.Header>
+        <DockPanel>
+          <Border DockPanel.Dock="Bottom" Margin="0,10,0,0" Padding="14,10" Background="{StaticResource Flaeche}" CornerRadius="8">
+            <DockPanel>
+              <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Bottom">
+                <CheckBox x:Name="a_erzwingen" Content="Auch unveränderte" VerticalAlignment="Center" Margin="12,0,12,0"
+                          ToolTip="Normalerweise werden Ansichten übersprungen, wenn das Modell seit dem letzten Export nicht gespeichert/synchronisiert wurde"/>
+                <Button x:Name="a_los" Style="{StaticResource Haupt}" Content="Ansichten zum Viewer"
+                        ToolTip="Angehakte 3D- und 2D-Ansichten exportieren und in den Projektordner stellen – alle sehen sie im Viewer"/>
+              </StackPanel>
+              <StackPanel>
+                <TextBlock x:Name="a_hilfe_fbx" TextWrapping="Wrap" Foreground="{StaticResource Grau}" FontSize="11.5"/>
+                <TextBlock x:Name="a_hilfe_ifc" TextWrapping="Wrap" Foreground="{StaticResource Grau}" FontSize="11.5" Margin="0,3,0,0"/>
+                <CheckBox x:Name="a_ohne_durch" Margin="0,6,0,0" IsChecked="True" Foreground="{StaticResource Grau}">
+                  <TextBlock x:Name="a_hilfe_durch" TextWrapping="Wrap" FontSize="11.5"/>
+                </CheckBox>
+              </StackPanel>
+            </DockPanel>
+          </Border>
+          <Grid>
+            <Grid.RowDefinitions><RowDefinition Height="3*"/><RowDefinition Height="12"/><RowDefinition Height="2*"/></Grid.RowDefinitions>
+            <Border Style="{StaticResource Karte}" Padding="18,12">
+              <DockPanel>
+                <DockPanel DockPanel.Dock="Top">
+                  <Button x:Name="a_neu" DockPanel.Dock="Right" Content="+ 3D-Ansicht"
+                          ToolTip="Weitere 3D-Ansicht exportieren, z. B. je Gewerk oder je Bauteil eine eigene"/>
+                  <TextBlock Text="3D – Modelle" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                </DockPanel>
+                <Grid DockPanel.Dock="Top" Margin="0,8,0,2">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="30"/><ColumnDefinition Width="2.2*"/><ColumnDefinition Width="1.8*"/>
+                    <ColumnDefinition Width="1.8*"/><ColumnDefinition Width="0.9*"/><ColumnDefinition Width="1.3*"/><ColumnDefinition Width="36"/>
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Grid.Column="1" Style="{StaticResource Etikett}" Margin="0" Text="3D-Ansicht in Revit"/>
+                  <TextBlock Grid.Column="2" Style="{StaticResource Etikett}" Margin="0" Text="Name im Viewer"/>
+                  <TextBlock Grid.Column="3" Style="{StaticResource Etikett}" Margin="0" Text="Verknüpfungen"/>
+                  <TextBlock Grid.Column="4" Style="{StaticResource Etikett}" Margin="0" Text="Format"/>
+                  <TextBlock Grid.Column="5" Style="{StaticResource Etikett}" Margin="0" Text="Zuletzt exportiert"/>
+                </Grid>
+                <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel x:Name="a_zeilen"/></ScrollViewer>
+              </DockPanel>
+            </Border>
+            <Border Grid.Row="2" Style="{StaticResource Karte}" Padding="18,12">
+              <DockPanel>
+                <DockPanel DockPanel.Dock="Top">
+                  <Button x:Name="a_plan_neu" DockPanel.Dock="Right" Content="+ Grundriss / Schnitt"
+                          ToolTip="Grundriss oder Schnitt mit Beschriftern, Bemaßung und Achsen – liegt im Viewer passgenau über dem Modell"/>
+                  <TextBlock Text="2D – Grundrisse und Schnitte" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                </DockPanel>
+                <Grid DockPanel.Dock="Top" Margin="0,8,0,2">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="30"/><ColumnDefinition Width="2.6*"/><ColumnDefinition Width="2.4*"/>
+                    <ColumnDefinition Width="1.3*"/><ColumnDefinition Width="36"/>
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Grid.Column="1" Style="{StaticResource Etikett}" Margin="0" Text="Ansicht in Revit"/>
+                  <TextBlock Grid.Column="2" Style="{StaticResource Etikett}" Margin="0" Text="Name im Viewer"/>
+                  <TextBlock Grid.Column="3" Style="{StaticResource Etikett}" Margin="0" Text="Zuletzt exportiert"/>
+                </Grid>
+                <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel x:Name="a_plaene"/></ScrollViewer>
+              </DockPanel>
+            </Border>
+          </Grid>
+        </DockPanel>
+      </TabItem>
+
+      <!-- 3 Durchbrüche -->
       <TabItem x:Name="t_durch">
         <TabItem.Header><TextBlock x:Name="h_durch" Text="Durchbrüche"/></TabItem.Header>
         <Grid>
@@ -183,44 +248,32 @@
             <DockPanel>
               <DockPanel DockPanel.Dock="Top">
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                  <Button x:Name="d_vorlage_speichern" Content="Speichern" Margin="6,0,0,0" ToolTip="Ebene und zurückgehaltene Durchbrüche in der Vorlage speichern"/>
-                  <Button x:Name="d_vorlage_neu" Content="Neu …" Margin="6,0,0,0"/>
-                  <Button x:Name="d_vorlage_weg" Content="Löschen" Margin="6,0,0,0"/>
+                  <Button x:Name="d_stand_neu" Content="Neuer Stand …" Margin="6,0,0,0"/>
+                  <Button x:Name="d_stand_weg" Content="Löschen" Margin="6,0,0,0" ToolTip="Nur hier aus der Liste – zum Entfernen für alle: Reiter „Einreichen“ › Stand zurückziehen"/>
                 </StackPanel>
-                <TextBlock Text="Auswahlvorlage" VerticalAlignment="Center" Margin="0,0,8,0" FontWeight="SemiBold"/>
-                <ComboBox x:Name="d_vorlage" ToolTip="Stand bzw. gespeicherte Auswahl, z. B. „EG Rohbau“. Neu hinzugekommene passende Durchbrüche werden automatisch angehakt. Im Viewer lässt sich jeder Stand einzeln ein- und ausblenden."/>
+                <TextBlock Text="Stand" VerticalAlignment="Center" Margin="0,0,8,0" FontWeight="SemiBold"/>
+                <ComboBox x:Name="d_stand" ToolTip="Ein Stand ist ein Paket von Durchbrüchen, z. B. „EG Rohbau“ – im Viewer einzeln ein-/ausblendbar"/>
               </DockPanel>
-              <Border x:Name="d_quelle_box" DockPanel.Dock="Top" Background="#f4f4f5" CornerRadius="8" Padding="10,7" Margin="0,8,0,0">
+              <Border DockPanel.Dock="Top" Background="#f4f4f5" CornerRadius="8" Padding="10,7" Margin="0,8,0,0">
                 <DockPanel>
-                  <TextBlock Text="Stand festlegen über" VerticalAlignment="Center" Margin="0,0,10,0" Foreground="{StaticResource Grau}"/>
-                  <RadioButton x:Name="d_q_filter" Content="Ebene und Häkchen" VerticalAlignment="Center" Margin="0,0,12,0" GroupName="quelle"/>
-                  <RadioButton x:Name="d_q_ansicht" Content="3D-Ansicht:" VerticalAlignment="Center" Margin="0,0,6,0" GroupName="quelle"
-                               ToolTip="Alle Durchbrüche, die in dieser 3D-Ansicht sichtbar sind, gehören zum Stand. In Revit ausblenden = nicht im Stand."/>
+                  <TextBlock Text="3D-Ansicht" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="{StaticResource Grau}"
+                             ToolTip="Alle Durchbrüche der Koordinations-Familien, die in dieser 3D-Ansicht sichtbar sind, gehören zum Stand. In Revit ausblenden = nicht im Stand."/>
                   <Button x:Name="d_ansicht_neu" DockPanel.Dock="Right" Content="Ansicht anlegen" Margin="6,0,0,0" Padding="8,3"
-                          ToolTip="Legt „DBK Stand – Name“ an: nur Durchbrüche, die aktuell angehakten sichtbar. Danach in Revit nach Bedarf aus-/einblenden."/>
+                          ToolTip="Legt „DBK Stand – Name“ an, in der nur Durchbrüche sichtbar sind. Danach in Revit ausblenden, was nicht dazugehört, und „Neu lesen“."/>
                   <Button x:Name="d_ansicht_lesen" DockPanel.Dock="Right" Content="Neu lesen" Margin="6,0,0,0" Padding="8,3"
                           ToolTip="Sichtbare Durchbrüche der Ansicht neu einlesen (nach Änderungen in Revit)"/>
                   <ComboBox x:Name="d_ansicht"/>
                 </DockPanel>
               </Border>
-              <DockPanel DockPanel.Dock="Top" Margin="0,10,0,0">
-                <TextBlock Text="Ebene" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="{StaticResource Grau}"/>
-                <ComboBox x:Name="d_ebene" Width="200"/>
-                <TextBlock Text="Anzeigen" VerticalAlignment="Center" Margin="14,0,6,0" Foreground="{StaticResource Grau}"/>
+              <DockPanel DockPanel.Dock="Top" Margin="0,10,0,6">
+                <TextBlock Text="Anzeigen" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="{StaticResource Grau}"/>
                 <ComboBox x:Name="d_filter" Width="170"/>
                 <TextBox x:Name="d_suche" Margin="10,0,0,0" ToolTip="Nummer, Familie oder Typ suchen"/>
               </DockPanel>
-              <TextBlock DockPanel.Dock="Top" x:Name="d_info" Margin="0,8,0,4" Foreground="{StaticResource Rot}" TextWrapping="Wrap"/>
               <DockPanel DockPanel.Dock="Bottom" Margin="0,8,0,0">
-                <TextBlock x:Name="d_summe" DockPanel.Dock="Right" VerticalAlignment="Center" Foreground="{StaticResource Grau}"/>
-                <WrapPanel>
-                  <Button x:Name="d_alle" Content="Alle" Margin="0,0,6,0"/>
-                  <Button x:Name="d_keine" Content="Keine" Margin="0,0,6,0"/>
-                  <Button x:Name="d_markierung" Content="Revit-Markierung übernehmen" Margin="0,0,6,0"
-                          ToolTip="Nur die in Revit markierten Durchbrüche anhaken"/>
-                  <Button x:Name="d_zeigen" Content="Auswahl in Revit zeigen"
-                          ToolTip="3D-Ansicht „DBK Einreichen – Name“: angehakt orange, zurückgehalten grau – das Fenster bleibt offen"/>
-                </WrapPanel>
+                <Button x:Name="d_zeigen" DockPanel.Dock="Left" Content="Stand in Revit zeigen"
+                        ToolTip="3D-Kontrollansicht: neu/geändert orange, unverändert grau – das Fenster bleibt offen"/>
+                <TextBlock x:Name="d_summe" VerticalAlignment="Center" HorizontalAlignment="Right" TextWrapping="Wrap" Foreground="{StaticResource Grau}"/>
               </DockPanel>
               <TreeView x:Name="d_liste" BorderBrush="{StaticResource Linie}"/>
             </DockPanel>
@@ -240,10 +293,11 @@
                 <TextBlock Style="{StaticResource Etikett}" Text="Prüfrunde"/>
                 <TextBox x:Name="e_runde" Width="420" HorizontalAlignment="Left"/>
               </StackPanel>
-              <CheckBox x:Name="e_entfallen" Margin="0,12,0,0"/>
               <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
                 <Button x:Name="e_los" Style="{StaticResource Haupt}" Content="Einreichen" Padding="18,8"/>
                 <Button x:Name="e_viewer" Content="Viewer öffnen" Margin="8,0,0,0" Padding="14,8"/>
+                <Button x:Name="e_zurueck" Content="Stand zurückziehen" Margin="24,0,0,0" Padding="14,8"
+                        ToolTip="Alle Durchbrüche dieses Stands verschwinden für alle aus der Koordination"/>
               </StackPanel>
             </StackPanel>
             <TextBox x:Name="e_log" Margin="0,16,0,0" Height="Auto" IsReadOnly="True" TextWrapping="Wrap" VerticalContentAlignment="Top"

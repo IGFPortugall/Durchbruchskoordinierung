@@ -234,6 +234,8 @@ export class Viewer {
   }
 
   setzeModellSichtbar(id, sichtbar) {
+    const p = this.plaene?.get(id);
+    if (p) { p.visible = sichtbar; return; }
     const f = this.fbx.get(id);
     if (f) { f.gruppe.visible = sichtbar; return; }
     const m = this.fragments.list.get(id);
@@ -241,6 +243,8 @@ export class Viewer {
   }
 
   modellSichtbar(id) {
+    const p = this.plaene?.get(id);
+    if (p) return p.visible;
     const f = this.fbx.get(id);
     if (f) return f.gruppe.visible;
     const m = this.fragments.list.get(id);
@@ -249,6 +253,49 @@ export class Viewer {
 
   _modellObjekt(id) {
     return this.fbx.get(id)?.gruppe || this.fragments.list.get(id)?.object || null;
+  }
+
+  // ------------------------------------------------------------- Pläne (2D aus Revit)
+
+  /**
+   * Grundriss/Schnitt als Bild mit Lage: ``plan.ecken_mm`` = vier Ecken (unten links, unten rechts, oben rechts,
+   * oben links) in Revit-Koordinaten. Grundrisse liegen knapp über der Geschossebene, Schnitte stehen senkrecht.
+   * Anfangs ausgeblendet.
+   */
+  async ladePlan(id, bytes, plan) {
+    this.entfernePlan(id);
+    const url = URL.createObjectURL(new Blob([bytes], { type: "image/png" }));
+    const textur = await new THREE.TextureLoader().loadAsync(url);
+    URL.revokeObjectURL(url);
+    textur.colorSpace = THREE.SRGBColorSpace;
+    textur.anisotropy = this.world.renderer.three.capabilities.getMaxAnisotropy();
+    const hoch = plan.art === "grundriss" ? 15 : 0;          // 15 mm über der Ebene, damit nichts flimmert
+    const e = plan.ecken_mm.map(([x, y, z]) => this.zuThree([x, y, z + hoch]));
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.Float32BufferAttribute([e[0], e[1], e[2], e[0], e[2], e[3]].flatMap((p) => p.toArray()), 3));
+    geo.setAttribute("uv", new THREE.Float32BufferAttribute([0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1], 2));
+    geo.computeVertexNormals();
+    const mat = new THREE.MeshBasicMaterial({ map: textur, side: THREE.DoubleSide, transparent: true, opacity: 0.92,
+      depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.name = "Plan " + id;
+    mesh.renderOrder = 5;
+    mesh.visible = false;
+    mesh.userData.plan = plan;
+    this.world.scene.three.add(mesh);
+    this.plaene = this.plaene || new Map();
+    this.plaene.set(id, mesh);
+    this._planTiefe();
+  }
+
+  entfernePlan(id) {
+    const m = this.plaene?.get(id);
+    if (!m) return;
+    this.world.scene.three.remove(m);
+    m.geometry.dispose();
+    m.material.map?.dispose();
+    m.material.dispose();
+    this.plaene.delete(id);
   }
 
   /**
@@ -291,30 +338,123 @@ export class Viewer {
     this.entferneFbx(id);
     const gruppe = new FBXLoader().parse(buffer, "");
     gruppe.name = "FBX " + id;
-    this._fbxAusrichten(gruppe, info);
-    const nachKategorie = new Map(), meshes = [];
+    const meshes = [];
     gruppe.traverse((o) => {
       if (!o.isMesh) return;
-      const mats = Array.isArray(o.material) ? o.material : [o.material];
-      for (const m of mats) { m.side = THREE.DoubleSide; }
       let eid = null;
       for (let p = o; p && !eid; p = p.parent) {
-        const t = p.name && p.name.match(/\[(\d+)\]|(?:^|\D)(\d{4,})(?:\D|$)/);
-        if (t) eid = t[1] || t[2];
+        // Revit hängt die Element-ID ans Ende („Familie_Typ_416654“ oder „[416654]“) – nicht die erste
+        // Zahl nehmen, sonst greift z. B. eine Norm-Nummer im Typnamen („DIN_18379“).
+        const t = p.name && (p.name.match(/\[(\d+)\]\s*$/) || p.name.match(/(\d{3,})\D*$/));
+        if (t) eid = t[1];
       }
       const d = eid && info?.bauteile?.[eid];
       o.userData.dbk = { modell: id, eid, info: d || null };
-      const kat = d?.k || "Ohne Zuordnung";
-      if (!nachKategorie.has(kat)) nachKategorie.set(kat, []);
-      nachKategorie.get(kat).push(o);
       meshes.push(o);
     });
+    if (!this._fbxAusrichtenNachBauteilen(gruppe, meshes)) this._fbxAusrichten(gruppe, info);
+    const kern = this._kernBox(gruppe, meshes);
+    const zusammen = await this._fbxZusammenlegen(id, gruppe, meshes);
     this.world.scene.three.add(gruppe);
-    this.fbx.set(id, { gruppe, info, nachKategorie, meshes });
+    this.fbx.set(id, { gruppe, info, nachKategorie: zusammen.nachKategorie, meshes: zusammen.meshes, kern });
     this.kategorien = this.kategorien || new Map();
-    this.kategorien.set(id, [...nachKategorie.keys()].sort().map((k) => ({
-      name: k, gruppe: "Revit", klassen: [], an: true, anzahl: nachKategorie.get(k).length })));
+    this.kategorien.set(id, [...zusammen.anzahl.keys()].sort().map((k) => ({
+      name: k, gruppe: "Revit", klassen: [], an: true, anzahl: zusammen.anzahl.get(k) })));
     return this.kategorien.get(id);
+  }
+
+  /**
+   * Revit-FBX hat je Bauteil eigene Meshes (Zehntausende Zeichenaufträge → ruckelt). Hier werden alle Teile
+   * gleicher Kategorie und gleicher Farbe zu einem Mesh zusammengelegt. Welches Bauteil getroffen wurde,
+   * ergibt sich aus dem Dreieck: je Mesh eine sortierte Liste „ab Dreieck n → Bauteil-ID“.
+   * Normalen entfallen (flache Schattierung) – halbiert den Speicher.
+   */
+  async _fbxZusammenlegen(id, gruppe, meshes) {
+    const { mergeGeometries } = await import("three/examples/jsm/utils/BufferGeometryUtils.js");
+    gruppe.updateMatrixWorld(true);
+    const zurueck = new THREE.Matrix4().copy(gruppe.matrixWorld).invert();
+    const toepfe = new Map(), anzahl = new Map(), gezaehlt = new Set();
+    for (const m of meshes) {
+      const quelle = m.geometry;
+      if (!quelle?.attributes?.position) continue;
+      const mat = Array.isArray(m.material) ? m.material[0] : m.material;
+      const d = m.userData.dbk || {};
+      const kat = d.info?.k || "Ohne Zuordnung";
+      const farbe = mat?.color ? mat.color.getHexString() : "a1a1aa";
+      const deckkraft = mat?.transparent ? Math.round((mat.opacity ?? 1) * 10) / 10 : 1;
+      const schluessel = `${kat}|${farbe}|${deckkraft}`;
+      let g = new THREE.BufferGeometry();
+      g.setAttribute("position", quelle.attributes.position.clone());
+      if (quelle.index) { g.setIndex(quelle.index.clone()); g = g.toNonIndexed(); }
+      g.applyMatrix4(new THREE.Matrix4().multiplyMatrices(zurueck, m.matrixWorld));
+      quelle.dispose();
+      if (!toepfe.has(schluessel)) toepfe.set(schluessel, { kat, farbe, deckkraft, teile: [], ab: [], eids: [], dreiecke: 0 });
+      const t = toepfe.get(schluessel);
+      t.teile.push(g);
+      t.ab.push(t.dreiecke);
+      t.eids.push(d.eid || null);
+      t.dreiecke += g.attributes.position.count / 3;
+      const z = `${kat}|${d.eid || m.uuid}`;
+      if (!gezaehlt.has(z)) { gezaehlt.add(z); anzahl.set(kat, (anzahl.get(kat) || 0) + 1); }
+    }
+    gruppe.clear();
+    const nachKategorie = new Map(), neu = [];
+    for (const t of toepfe.values()) {
+      const geo = mergeGeometries(t.teile, false);
+      t.teile.forEach((g) => g.dispose());
+      if (!geo) continue;
+      geo.computeBoundingSphere();
+      geo.computeBoundingBox();
+      const mat = new THREE.MeshLambertMaterial({ color: new THREE.Color("#" + t.farbe), side: THREE.DoubleSide,
+        flatShading: true, transparent: t.deckkraft < 1, opacity: t.deckkraft });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.name = `FBX ${id} – ${t.kat}`;
+      mesh.userData.dbk = { modell: id, kategorie: t.kat, ab: Uint32Array.from(t.ab), eids: t.eids };
+      gruppe.add(mesh);
+      neu.push(mesh);
+      if (!nachKategorie.has(t.kat)) nachKategorie.set(t.kat, []);
+      nachKategorie.get(t.kat).push(mesh);
+    }
+    return { meshes: neu, nachKategorie, anzahl };
+  }
+
+  /** Aus einem Treffer auf einem zusammengelegten FBX-Mesh: Bauteil-ID und Dreiecksbereich. */
+  _fbxBauteil(mesh, dreieck) {
+    const d = mesh.userData.dbk, ab = d.ab;
+    let lo = 0, hi = ab.length - 1;
+    while (lo < hi) { const mitte = (lo + hi + 1) >> 1; if (ab[mitte] <= dreieck) lo = mitte; else hi = mitte - 1; }
+    const ende = lo + 1 < ab.length ? ab[lo + 1] : mesh.geometry.attributes.position.count / 3;
+    return { eid: d.eids[lo], von: ab[lo], bis: ende };
+  }
+
+  /** Box ohne Ausreißer: 1.–99. Perzentil der Bauteilmitten (je Achse). Für „Alles zeigen“. */
+  _kernBox(gruppe, meshes) {
+    gruppe.updateMatrixWorld(true);
+    const schritt = Math.max(1, Math.floor(meshes.length / 5000));
+    const ax = [[], [], []], b = new THREE.Box3(), c = new THREE.Vector3();
+    for (let i = 0; i < meshes.length; i += schritt) {
+      b.setFromObject(meshes[i]);
+      if (b.isEmpty()) continue;
+      b.getCenter(c);
+      ax[0].push(c.x); ax[1].push(c.y); ax[2].push(c.z);
+    }
+    if (!ax[0].length) return new THREE.Box3().setFromObject(gruppe);
+    const p = (a, q) => a[Math.min(a.length - 1, Math.floor(q * a.length))];
+    for (const a of ax) a.sort((x, y) => x - y);
+    return new THREE.Box3(new THREE.Vector3(p(ax[0], 0.01), p(ax[1], 0.01), p(ax[2], 0.01)),
+      new THREE.Vector3(p(ax[0], 0.99), p(ax[1], 0.99), p(ax[2], 0.99)));
+  }
+
+  /** Modell (FBX oder Fragments) ganz aus der Szene nehmen. */
+  async entferneModell(id) {
+    this.entfernePlan(id);
+    this.entferneFbx(id);
+    if (this.fragments.list.has(id)) {
+      this._basisVergessen(id);
+      await this.fragments.core.disposeModel(id);
+      this.fragments.core.update(true);
+    }
+    this.kategorien?.delete(id);
   }
 
   entferneFbx(id) {
@@ -324,6 +464,57 @@ export class Viewer {
     this.world.scene.three.remove(f.gruppe);
     f.gruppe.traverse((o) => { if (o.isMesh) { o.geometry.dispose(); } });
     this.fbx.delete(id);
+  }
+
+  /**
+   * Maßstab, Hochachse und Lage aus den einzelnen Bauteilen bestimmen: je Bauteil-ID die Box im FBX mit der
+   * Box aus Revit vergleichen und jeweils den Median nehmen. So stören einzelne Ausreißer (Bauteile mit
+   * kaputter, kilometergroßer Box) nicht. Mit zu wenigen zugeordneten Bauteilen: Gesamtbox wie bisher.
+   */
+  _fbxAusrichtenNachBauteilen(gruppe, meshes) {
+    const nachId = new Map();
+    for (const m of meshes) {
+      const d = m.userData.dbk;
+      if (!d?.info?.b) continue;
+      if (!nachId.has(d.eid)) nachId.set(d.eid, { b: d.info.b, meshes: [] });
+      nachId.get(d.eid).meshes.push(m);
+    }
+    if (nachId.size < 20) return false;
+    const proben = [...nachId.values()];
+    const schritt = Math.max(1, Math.floor(proben.length / 4000));
+    const auswahl = proben.filter((_, i) => i % schritt === 0);
+    const median = (a) => { const s = [...a].sort((x, y) => x - y); return s.length ? s[s.length >> 1] : NaN; };
+    const sollBox = (b) => new THREE.Box3(new THREE.Vector3(b[0] / 1000, b[2] / 1000, -b[4] / 1000),
+      new THREE.Vector3(b[3] / 1000, b[5] / 1000, -b[1] / 1000));
+    let bester = null;
+    for (const drehung of [0, -Math.PI / 2]) {          // Y oben bzw. Z oben
+      gruppe.rotation.set(drehung, 0, 0);
+      gruppe.scale.setScalar(1);
+      gruppe.position.set(0, 0, 0);
+      gruppe.updateMatrixWorld(true);
+      const paare = [], verhaeltnisse = [];
+      for (const p of auswahl) {
+        const ist = new THREE.Box3();
+        for (const m of p.meshes) ist.expandByObject(m);
+        if (ist.isEmpty()) continue;
+        const soll = sollBox(p.b);
+        const gi = ist.getSize(new THREE.Vector3()), gs = soll.getSize(new THREE.Vector3());
+        for (const k of ["x", "y", "z"]) if (gi[k] > 1e-9 && gs[k] > 0.05) verhaeltnisse.push(gs[k] / gi[k]);
+        paare.push([ist.getCenter(new THREE.Vector3()), soll.getCenter(new THREE.Vector3())]);
+      }
+      const faktor = median(verhaeltnisse);
+      if (!(faktor > 0) || !isFinite(faktor)) continue;
+      const fehler = median(verhaeltnisse.map((v) => Math.abs(Math.log(v / faktor))));
+      if (!bester || fehler < bester.fehler) bester = { drehung, faktor, fehler, paare };
+    }
+    if (!bester) return false;
+    const { drehung, faktor, paare } = bester;
+    const versatz = ["x", "y", "z"].map((k) => median(paare.map(([i, s]) => s[k] - faktor * i[k])));
+    gruppe.rotation.set(drehung, 0, 0);
+    gruppe.scale.setScalar(faktor);
+    gruppe.position.set(...versatz);
+    gruppe.updateMatrixWorld(true);
+    return true;
   }
 
   _fbxAusrichten(gruppe, info) {
@@ -361,7 +552,7 @@ export class Viewer {
   async allesZeigen() {
     const box = new THREE.Box3();
     for (const [, m] of this.fragments.list) if (m.box && !m.box.isEmpty()) box.union(m.box);
-    for (const [, f] of this.fbx) if (f.gruppe.visible) box.expandByObject(f.gruppe);
+    for (const [, f] of this.fbx) if (f.gruppe.visible) box.union(f.kern || new THREE.Box3().setFromObject(f.gruppe));
     for (const m of this.meshes.values()) box.expandByObject(m);
     if (box.isEmpty()) return;
     const mitte = box.getCenter(new THREE.Vector3()), r = box.getSize(new THREE.Vector3()).length() / 2;
@@ -388,31 +579,22 @@ export class Viewer {
     for (const o of objekte) {
       const g = o.daten.geometrie;
       if (!g || !g.min || !g.max) continue;
-      const a = this.zuThree(g.min), b = this.zuThree(g.max);
-      const min = a.clone().min(b), max = a.clone().max(b);
-      const groesse = max.clone().sub(min), mitte = min.clone().add(max).multiplyScalar(0.5);
-      let geo;
-      if (g.form === "rund") {
-        const durchX = groesse.x < groesse.z;          // Rohr läuft durch die dünne Richtung
-        const laenge = durchX ? groesse.x : groesse.z;
-        geo = new THREE.CylinderGeometry(groesse.y / 2, groesse.y / 2, laenge, 24);
-        geo.rotateZ(durchX ? Math.PI / 2 : 0);
-        if (!durchX) geo.rotateX(Math.PI / 2);
-      } else {
-        geo = new THREE.BoxGeometry(groesse.x, groesse.y, groesse.z);
-      }
+      const form = this._durchbruchForm(o.daten);
+      const geo = form.geo;
       const farbe = FARBE[o.wirkung] ?? FARBE.offen;
       const mat = new THREE.MeshLambertMaterial({ color: farbe, emissive: farbe, emissiveIntensity: 0.25 });
       const mesh = new THREE.Mesh(geo, mat);
-      mesh.position.copy(mitte);
+      mesh.position.copy(form.mitte);
+      mesh.quaternion.copy(form.drehung);
+      const groesse = form.grundriss;
       mesh.userData = { id: o.id, nummer: o.daten.nummer, groesse: o.daten.groesse || "", ebene: o.daten.ebene };
       const kante = new THREE.LineSegments(new THREE.EdgesGeometry(geo),
         new THREE.LineBasicMaterial({ color: 0x2c2c2a, transparent: true, opacity: 0.6 }));
       mesh.add(kante);
       // Grundriss-Umriss: liegt knapp unter der Schnitthöhe, damit er nie weggeschnitten wird
-      const fuss = new THREE.Mesh(new THREE.PlaneGeometry(Math.max(groesse.x, 0.08), Math.max(groesse.z, 0.08)),
-        new THREE.MeshBasicMaterial({ color: farbe, transparent: true, opacity: 0.85, depthTest: false }));
-      fuss.rotation.x = -Math.PI / 2;
+      const fuss = new THREE.Mesh(new THREE.PlaneGeometry(Math.max(groesse[0], 0.08), Math.max(groesse[1], 0.08)),
+        new THREE.MeshBasicMaterial({ color: farbe, transparent: true, opacity: 0.85, depthTest: false, side: THREE.DoubleSide }));
+      fuss.quaternion.copy(form.fussDrehung);
       fuss.renderOrder = 5;
       fuss.visible = false;
       fuss.name = "grundriss";
@@ -425,6 +607,54 @@ export class Viewer {
     this._grundrissMarken();
   }
 
+  /**
+   * Form eines Durchbruchs: gedrehte Box aus ``ausrichtung`` (Exemplar-Achsen aus Revit), sonst achsparallel
+   * aus min/max. Rund: Zylinder entlang der Achse, deren Querschnitt am rundesten ist (Decke → senkrecht).
+   * Liefert {geo, mitte, drehung, grundriss: [b, t] (Umriss von oben), fussDrehung}.
+   */
+  _durchbruchForm(d) {
+    const g = d.geometrie, a = d.ausrichtung;
+    const revitZuThree = (v) => new THREE.Vector3(v[0], v[2], -v[1]);
+    let mitte, achsen, s;
+    if (a && a.achsen && a.groesse_mm) {
+      mitte = this.zuThree(a.mitte_mm);
+      achsen = a.achsen.map(revitZuThree);
+      s = a.groesse_mm.map((v) => Math.max(v, 5) / 1000);
+    } else {
+      const p = this.zuThree(g.min), q = this.zuThree(g.max);
+      mitte = p.clone().add(q).multiplyScalar(0.5);
+      achsen = [[1, 0, 0], [0, 1, 0], [0, 0, 1]].map(revitZuThree);
+      s = [0, 1, 2].map((k) => Math.max(Math.abs(g.max[k] - g.min[k]), 5) / 1000);
+    }
+    // Rechtshändig machen (gespiegelte Exemplare), sonst lässt sich keine Drehung bilden
+    if (achsen[0].clone().cross(achsen[1]).dot(achsen[2]) < 0) achsen[2].negate();
+    const drehung = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(...achsen));
+    let geo;
+    if (g.form === "rund") {
+      // Achse k: die beiden anderen Maße sind (fast) gleich = Kreisquerschnitt
+      let k = [0, 1, 2].sort((i, j) => {
+        const q = (n) => { const r = [0, 1, 2].filter((x) => x !== n).map((x) => s[x]); return Math.abs(r[0] - r[1]) / Math.max(r[0], r[1]); };
+        return q(i) - q(j);
+      })[0];
+      if (!a && d.lage === "decke") k = 2;                  // alte Daten: Deckendurchbruch senkrecht
+      const quer = [0, 1, 2].filter((x) => x !== k).map((x) => s[x]);
+      const r = (quer[0] + quer[1]) / 4;
+      geo = new THREE.CylinderGeometry(r, r, s[k], 28);
+      if (k === 0) geo.rotateZ(Math.PI / 2);
+      if (k === 2) geo.rotateX(Math.PI / 2);
+    } else {
+      geo = new THREE.BoxGeometry(s[0], s[1], s[2]);
+    }
+    // Umriss von oben: Ebene in der lokalen Achsen-Ebene, die am waagerechtesten liegt
+    const oben = new THREE.Vector3(0, 1, 0);
+    const senk = [0, 1, 2].sort((i, j) => Math.abs(achsen[j].dot(oben)) - Math.abs(achsen[i].dot(oben)))[0];
+    const [u, w] = [0, 1, 2].filter((x) => x !== senk);
+    const fussDrehung = new THREE.Quaternion();
+    if (senk === 1) fussDrehung.setFromEuler(new THREE.Euler(-Math.PI / 2, 0, 0));
+    if (senk === 0) fussDrehung.setFromEuler(new THREE.Euler(0, Math.PI / 2, 0));
+    return { geo, mitte, drehung, grundriss: [s[u], s[w]], fussDrehung };
+  }
+
   /** Im Grundriss: Durchbrüche des Geschosses als Umriss auf Schnitthöhe zeigen. */
   _grundrissMarken() {
     const y = this._geschossEbene.constant - 0.02;
@@ -432,7 +662,11 @@ export class Viewer {
       const fuss = m.getObjectByName("grundriss");
       const an = this.modus === "plan" && m.userData.ebene === this.geschoss;
       fuss.visible = an;
-      if (an) fuss.position.y = (y - m.position.y) / m.scale.y;
+      if (an) {
+        m.updateMatrixWorld(true);
+        fuss.position.set(0, 0, 0);
+        fuss.position.copy(m.worldToLocal(new THREE.Vector3(m.position.x, y, m.position.z)));
+      }
     }
   }
 
@@ -502,6 +736,17 @@ export class Viewer {
     this.world.renderer.updateClippingPlanes?.();
     this.fragments.core.update(true);
     this._grundrissMarken();
+    this._planTiefe();
+  }
+
+  /** Grundriss-Modus: Pläne liegen wie ein Blatt über dem Modell (unter den Durchbrüchen); 3D: normal im Raum. */
+  _planTiefe() {
+    for (const m of this.plaene?.values() || []) {
+      const oben = this.modus === "plan" && m.userData.plan.art === "grundriss";
+      m.material.depthTest = !oben;
+      m.renderOrder = oben ? -10 : 5;
+      m.material.needsUpdate = true;
+    }
   }
 
   async setzeModus(modus) {
@@ -551,7 +796,7 @@ export class Viewer {
   modellGrenzen() {
     const box = new THREE.Box3();
     for (const [, m] of this.fragments.list) if (m.box && !m.box.isEmpty()) box.union(m.box);
-    for (const [, f] of this.fbx) box.expandByObject(f.gruppe);
+    for (const [, f] of this.fbx) box.union(f.kern || new THREE.Box3().setFromObject(f.gruppe));
     for (const m of this.meshes.values()) box.expandByObject(m);
     if (box.isEmpty()) box.set(new THREE.Vector3(-10, -10, -10), new THREE.Vector3(10, 10, 10));
     return box.expandByScalar(1);
@@ -644,6 +889,85 @@ export class Viewer {
 
   get anzahlSchnitte() { return this.clipper.list.size + (this.box.an ? 1 : 0); }
 
+  /** Die (eine) aktive Schnittebene als {normal, punkt} (Viewer-Koordinaten) oder null. */
+  ebeneLesen() {
+    const p = [...this.clipper.list.values()][0];
+    return p ? { normal: p.normal.toArray(), punkt: p.origin.toArray() } : null;
+  }
+
+  /** Genau diese Schnittebene zeigen (alle anderen weg); null = keine Ebene. */
+  ebeneSetzen(e) {
+    this.clipper.deleteAll();
+    if (e) this.clipper.createFromNormalAndCoplanarPoint(this.world, new THREE.Vector3(...e.normal), new THREE.Vector3(...e.punkt));
+    this.fragments.core.update(true);
+  }
+
+  // ------------------------------------------------------------- Punkte wählen (Ausrichten)
+
+  /**
+   * Nächster Klick liefert {punkt, modell}: Punkt auf einem Modell, eingerastet auf die nächste Ecke des
+   * getroffenen Dreiecks (FBX) – so lassen sich gleiche Punkte in zwei Modellen genau treffen. Esc → null.
+   */
+  punktWaehlen(auchDurchbrueche = false) {
+    this._punktAuchDurchbrueche = auchDurchbrueche;
+    this._werkzeug = "punkt";
+    this.container.classList.add("werkzeug-aktiv");
+    return new Promise((fertig) => { this._punktFertig = fertig; });
+  }
+
+  async _punktTreffer() {
+    let bester = null;
+    if (this._punktAuchDurchbrueche) {
+      const td = this.caster.castRayToObjects([...this.meshes.values()].filter((m) => m.visible));
+      if (td && this._nichtWeggeschnitten(td.point)) bester = { punkt: td.point.clone(), modell: "durchbruch", abstand: td.distance };
+    }
+    const gruppen = [...this.fbx.values()].filter((f) => f.gruppe.visible).map((f) => f.gruppe);
+    const t = gruppen.length ? this.caster.castRayToObjects(gruppen) : null;
+    if (t && t.object?.userData?.dbk && this._nichtWeggeschnitten(t.point)) {
+      let punkt = t.point.clone();
+      if (t.faceIndex != null) {
+        const pos = t.object.geometry.attributes.position;
+        let nah = null;
+        for (let k = 0; k < 3; k++) {
+          const v = new THREE.Vector3().fromBufferAttribute(pos, t.faceIndex * 3 + k).applyMatrix4(t.object.matrixWorld);
+          if (!nah || v.distanceTo(t.point) < nah.distanceTo(t.point)) nah = v;
+        }
+        if (nah && nah.distanceTo(t.point) < 0.6) punkt = nah;
+      }
+      if (!bester || t.distance < bester.abstand) bester = { punkt, modell: t.object.userData.dbk.modell, abstand: t.distance };
+    }
+    try {
+      const r = await this.caster.castRay();
+      if (r && r.point && r.fragments && this._nichtWeggeschnitten(r.point)) {
+        const d = r.point.distanceTo(this.world.camera.three.position);
+        if (!bester || d < bester.abstand) bester = { punkt: r.point.clone(), modell: r.fragments.modelId, abstand: d };
+      }
+    } catch { /* kein Treffer */ }
+    return bester;
+  }
+
+  /** Kleine Kugel als Marke für gewählte Punkte (farbe: Zahl). */
+  punktMarke(punkt, farbe = 0x185fa5) {
+    const d = this.world.camera.three.position.distanceTo(punkt);
+    const m = new THREE.Mesh(new THREE.SphereGeometry(Math.max(0.05, d * 0.008), 16, 12),
+      new THREE.MeshBasicMaterial({ color: farbe, depthTest: false }));
+    m.renderOrder = 20;
+    m.position.copy(punkt);
+    this.world.scene.three.add(m);
+    (this._punktMarken = this._punktMarken || []).push(m);
+  }
+
+  punktMarkenWeg() {
+    for (const m of this._punktMarken || []) { this.world.scene.three.remove(m); m.geometry.dispose(); }
+    this._punktMarken = [];
+  }
+
+  /** Drehpunkt und Mitte, um die ``ausrichten`` dreht (Viewer-Koordinaten). */
+  ausrichtungsMitte(id) {
+    if (!this._basis?.has(id)) this.ausrichten(id, null);
+    return this._basis?.get(id)?.mitte?.clone() || new THREE.Vector3();
+  }
+
   // ------------------------------------------------------------- Maus
 
   /** Punkt unter der Maus (Modell, FBX oder Durchbruch) – für Drehpunkt und Doppelklick. */
@@ -707,7 +1031,19 @@ export class Viewer {
       if (this._werkzeug === "ebene") {
         this._werkzeug = null;
         el.classList.remove("werkzeug-aktiv");
+        this.clipper.deleteAll();                      // immer nur eine Ebene – Schnitte werden in der Liste umgeschaltet
         await this.clipper.create(this.world);
+        this.onEbeneErstellt?.(this.ebeneLesen());
+        return;
+      }
+      if (this._werkzeug === "punkt") {
+        const t = await this._punktTreffer();
+        if (!t) return;                                // daneben geklickt: weiter warten
+        this._werkzeug = null;
+        el.classList.remove("werkzeug-aktiv");
+        const fertig = this._punktFertig;
+        this._punktFertig = null;
+        fertig?.(t);
         return;
       }
       const treffer = this.caster.castRayToObjects([...this.meshes.values()].filter((m) => m.visible));
@@ -724,8 +1060,9 @@ export class Viewer {
       // Kein Durchbruch getroffen → FBX-Bauteil oder Modellbauteil (Fragments)
       const fbxGruppen = [...this.fbx.values()].filter((f) => f.gruppe.visible).map((f) => f.gruppe);
       const tf = fbxGruppen.length ? this.caster.castRayToObjects(fbxGruppen) : null;
-      if (tf && tf.object?.userData?.dbk && this._nichtWeggeschnitten(tf.point)) {
-        await this.bauteilWaehlen({ modelId: tf.object.userData.dbk.modell, fbx: tf.object });
+      if (tf && tf.object?.userData?.dbk?.ab && tf.faceIndex != null && this._nichtWeggeschnitten(tf.point)) {
+        const b = this._fbxBauteil(tf.object, tf.faceIndex);
+        await this.bauteilWaehlen({ modelId: tf.object.userData.dbk.modell, fbx: tf.object, ...b });
         return;
       }
       const r = await this.caster.castRay();
@@ -734,7 +1071,12 @@ export class Viewer {
       if (!ok) { this.waehle(null); this.onAuswahl(null); }
     });
     el.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" && this._werkzeug) { this._werkzeug = null; el.classList.remove("werkzeug-aktiv"); }
+      if (e.key === "Escape" && this._werkzeug) {
+        if (this._werkzeug === "punkt") { const f = this._punktFertig; this._punktFertig = null; f?.(null); }
+        this._werkzeug = null;
+        el.classList.remove("werkzeug-aktiv");
+        this.onWerkzeugEnde?.();
+      }
     });
   }
 
@@ -742,7 +1084,11 @@ export class Viewer {
   async bauteilWaehlen(auswahl) {
     const alt = this.bauteil;
     if (alt?.fbx) {
-      alt.fbx.material = alt.fbxMaterial;
+      if (this._fbxMarke) {
+        this._fbxMarke.parent?.remove(this._fbxMarke);
+        this._fbxMarke.geometry.dispose();
+        this._fbxMarke = null;
+      }
     } else if (alt) {
       const m = this.fragments.list.get(alt.modelId);
       if (m) await m.resetHighlight([alt.localId]);
@@ -750,9 +1096,16 @@ export class Viewer {
     this.bauteil = auswahl;
     this._bauteilBox = null;
     if (auswahl?.fbx) {
-      auswahl.fbxMaterial = auswahl.fbx.material;
-      auswahl.fbx.material = new THREE.MeshLambertMaterial({ color: FARBE_AUSWAHL, side: THREE.DoubleSide });
-      this._bauteilBox = new THREE.Box3().setFromObject(auswahl.fbx);
+      // Nur die Dreiecke dieses Bauteils als eigenes, eingefärbtes Mesh darüberlegen
+      const pos = auswahl.fbx.geometry.attributes.position;
+      const teil = new THREE.BufferGeometry();
+      teil.setAttribute("position", new THREE.BufferAttribute(pos.array.slice(auswahl.von * 9, auswahl.bis * 9), 3));
+      const marke = new THREE.Mesh(teil, new THREE.MeshLambertMaterial({ color: FARBE_AUSWAHL, side: THREE.DoubleSide,
+        flatShading: true, polygonOffset: true, polygonOffsetFactor: -1 }));
+      auswahl.fbx.add(marke);
+      this._fbxMarke = marke;
+      marke.updateMatrixWorld(true);
+      this._bauteilBox = new THREE.Box3().setFromObject(marke);
     } else if (auswahl) {
       const m = this.fragments.list.get(auswahl.modelId);
       await m.highlight([auswahl.localId], {
@@ -772,12 +1125,12 @@ export class Viewer {
 
   /** Eigenschaften eines FBX-Bauteils (aus den Revit-Infos). */
   fbxDaten(auswahl) {
-    const d = auswahl.fbx.userData.dbk || {};
-    const i = d.info || {};
+    const f = this.fbx.get(auswahl.modelId);
+    const i = (auswahl.eid && f?.info?.bauteile?.[auswahl.eid]) || {};
     return {
-      titel: i.t ? `${i.f || ""} : ${i.t}` : (auswahl.fbx.name || "Bauteil"),
+      titel: i.t ? `${i.f || ""} : ${i.t}` : (auswahl.fbx.userData.dbk?.kategorie || "Bauteil"),
       zeilen: [["Modell", auswahl.modelId], ["Kategorie", i.k], ["Familie", i.f], ["Typ", i.t], ["Ebene", i.e],
-        ["System", i.s], ["Größe", i.g], ["Revit-ID", d.eid]].filter(([, v]) => v),
+        ["System", i.s], ["Größe", i.g], ["Revit-ID", auswahl.eid]].filter(([, v]) => v),
     };
   }
 
@@ -828,5 +1181,55 @@ export class Viewer {
       } else if (d) d.style.display = "none";
     }
     for (const d of vorhanden.values()) d.remove();
+    this._messTexteAktualisieren(cam, breite, hoehe);
+  }
+
+  // ------------------------------------------------------------- Messen
+
+  /** Strecke a–b (Viewer-Koordinaten, m) mit Beschriftung „3,45 m“ (+ Δ waagerecht/senkrecht) einzeichnen. */
+  messungHinzu(a, b) {
+    if (!this.messTexte) {
+      this.messTexte = document.createElement("div");
+      this.messTexte.className = "labels";
+      this.container.appendChild(this.messTexte);
+    }
+    const farbe = 0x185fa5;
+    const linie = new THREE.Line(new THREE.BufferGeometry().setFromPoints([a, b]),
+      new THREE.LineBasicMaterial({ color: farbe, depthTest: false, linewidth: 2 }));
+    linie.renderOrder = 30;
+    const kugeln = [a, b].map((p) => {
+      const d = this.world.camera.three.position.distanceTo(p);
+      const k = new THREE.Mesh(new THREE.SphereGeometry(Math.max(0.03, d * 0.005), 12, 8),
+        new THREE.MeshBasicMaterial({ color: farbe, depthTest: false }));
+      k.position.copy(p);
+      k.renderOrder = 31;
+      return k;
+    });
+    for (const o of [linie, ...kugeln]) this.world.scene.three.add(o);
+    const m = (x) => (x).toFixed(2).replace(".", ",") + " m";
+    const d = a.distanceTo(b), dh = Math.hypot(b.x - a.x, b.z - a.z), dv = Math.abs(b.y - a.y);
+    const div = document.createElement("div");
+    div.className = "mess-text";
+    div.textContent = m(d) + (dh > 0.01 && dv > 0.01 ? `  (waagerecht ${m(dh)} · senkrecht ${m(dv)})` : "");
+    this.messTexte.appendChild(div);
+    (this.messungen = this.messungen || []).push({ objekte: [linie, ...kugeln], div, mitte: a.clone().add(b).multiplyScalar(0.5) });
+  }
+
+  messungenWeg() {
+    for (const m of this.messungen || []) {
+      for (const o of m.objekte) { this.world.scene.three.remove(o); o.geometry.dispose(); }
+      m.div.remove();
+    }
+    this.messungen = [];
+  }
+
+  _messTexteAktualisieren(cam, breite, hoehe) {
+    const v = new THREE.Vector3();
+    for (const m of this.messungen || []) {
+      v.copy(m.mitte).project(cam);
+      const sichtbar = v.z <= 1 && Math.abs(v.x) <= 1.1 && Math.abs(v.y) <= 1.1;
+      m.div.style.display = sichtbar ? "" : "none";
+      if (sichtbar) { m.div.style.left = ((v.x + 1) / 2) * breite + "px"; m.div.style.top = ((1 - v.y) / 2) * hoehe + "px"; }
+    }
   }
 }

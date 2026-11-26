@@ -109,18 +109,28 @@ export class Ablage {
 
   async ladeNeue() {
     const neu = [];
-    const pfade = (await this.zugang.liste()).filter((p) => /^ereignisse\/[^/]+\/[^/]+\.json$/.test(p)).sort();
-    for (const pfad of pfade) {
-      if (this._gelesen.has(pfad) || this.verworfen.has(pfad)) continue;
-      let e;
-      try { e = JSON.parse(text(await this.zugang.lies(pfad))); } catch { this.unvollstaendig.add(pfad); continue; }
+    const pfade = (await this.zugang.liste()).filter((p) => /^ereignisse\/[^/]+\/[^/]+\.json$/.test(p)).sort()
+      .filter((p) => !this._gelesen.has(p) && !this.verworfen.has(p));
+    // Viele kleine Dateien: parallel lesen (bei Tausenden Ereignissen sonst Sekunden bis Minuten)
+    const ergebnisse = new Array(pfade.length);
+    let naechste = 0;
+    const arbeiter = async () => {
+      while (naechste < pfade.length) {
+        const i = naechste++;
+        try { ergebnisse[i] = JSON.parse(text(await this.zugang.lies(pfade[i]))); } catch { ergebnisse[i] = undefined; }
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(24, pfade.length) }, arbeiter));
+    pfade.forEach((pfad, i) => {
+      const e = ergebnisse[i];
+      if (e === undefined) { this.unvollstaendig.add(pfad); return; }
       this.unvollstaendig.delete(pfad);
       const ordner = pfad.split("/")[1];
-      if (!istGueltig(e) || ordnername(e.firma) !== ordner) { this.verworfen.add(pfad); continue; }
+      if (!istGueltig(e) || ordnername(e.firma) !== ordner) { this.verworfen.add(pfad); return; }
       this._gelesen.add(pfad);
       this._ereignisse.push(e);
       neu.push(e);
-    }
+    });
     return neu;
   }
 

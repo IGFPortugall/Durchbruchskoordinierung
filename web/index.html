@@ -28,12 +28,12 @@
     </div>
     <select id="geschoss" title="Geschoss: im 3D werden darüberliegende Geschosse ausgeblendet, im Grundriss wird 1,00 m über OKFF geschnitten"></select>
     <div class="trenner"></div>
-    <button id="schnitt-ebene" title="Schnittebene: danach auf eine Fläche klicken. Die Ebene lässt sich am Pfeil verschieben. Esc bricht ab.">Schnitt setzen</button>
-    <button id="schnitt-box" title="Schnittbox um den ausgewählten Durchbruch bzw. das gewählte Bauteil (sonst um die Bildmitte). Seiten im Einstellungsfenster mit Reglern verschieben.">Schnittbox</button>
-    <button id="schnitt-weg" title="Alle Schnitte entfernen">Schnitte <span id="schnitt-anzahl">0</span> ×</button>
+    <select id="schnitt-wahl" class="schnitt-wahl" title="Gespeicherte Schnitte – umschalten (Liste links unter „Schnitte“)"></select>
+    <button id="schnitt-ebene" title="Neuer Schnitt: danach auf eine Fläche klicken. Die Ebene am Pfeil verschieben. Esc bricht ab.">+ Schnitt</button>
+    <button id="schnitt-box" title="Neue Schnittbox um den gewählten Durchbruch bzw. das gewählte Bauteil (sonst um die Bildmitte). Seiten links in der Liste verschieben.">+ Box</button>
     <div class="trenner"></div>
     <button id="alles" title="Alles zeigen">Alles zeigen</button>
-    <button id="einstellungen" title="Schnitte, Navigation, Beschriftung">Ansicht ⚙</button>
+    <button id="einstellungen" title="Navigation und Darstellung">Ansicht ⚙</button>
   </div>
   <button id="benutzer" class="benutzer" title="Name, Firma und Rolle ändern"></button>
 </header>
@@ -42,6 +42,8 @@
   <aside class="inhalte">
     <div class="i-kopf">Modelle</div>
     <div id="i-modelle" class="i-liste"></div>
+    <div class="i-kopf" id="i-plaene-kopf" hidden>Pläne (2D)</div>
+    <div id="i-plaene" class="i-liste"></div>
     <div class="i-kopf">Durchbrüche · Stände</div>
     <div id="i-staende" class="i-liste"></div>
     <label id="i-laden" class="i-laden" tabindex="0"
@@ -54,6 +56,22 @@
   <section class="mitte">
     <div id="viewer" class="viewer" tabindex="0"></div>
     <div id="panel" class="panel" hidden></div>
+    <div class="werkzeugkasten">
+      <div id="schnitt-pop" class="schnitt-pop" hidden>
+        <div class="sp-kopf"><b>Schnitte</b>
+          <span><button id="sp-ebene" title="Auf eine Fläche klicken – dort wird geschnitten">+ Schnitt</button>
+          <button id="sp-box" title="Box um die Auswahl bzw. die Bildmitte">+ Box</button></span></div>
+        <label class="sp-auto" title="Klick auf einen Durchbruch (Liste oder Modell) legt eine Schnittbox mit 2 m Abstand darum">
+          <input type="checkbox" id="sp-auto"> Box um gewählten Durchbruch (2 m)</label>
+        <div id="i-schnitte" class="i-liste"></div>
+      </div>
+      <button id="wk-schnitte" class="wk-knopf" title="Schnitte: anlegen, umschalten, umbenennen">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 12l9 4 9-4" opacity=".45"/><path d="M2 14h20" stroke-dasharray="3 2"/></svg>
+        <span>Schnitte</span></button>
+      <button id="wk-messen" class="wk-knopf" title="Messen: zwei Punkte anklicken (rastet auf Ecken ein). Nochmal klicken = Messungen löschen">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17L17 3l4 4L7 21z"/><path d="M7 13l2 2M10 10l2 2M13 7l2 2"/></svg>
+        <span>Messen</span></button>
+    </div>
     <div id="hinweis" class="hinweis"></div>
     <div class="legende">
       <span><i style="background:#EF9F27"></i>In Prüfung</span>

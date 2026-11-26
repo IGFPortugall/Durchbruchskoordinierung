@@ -53,9 +53,12 @@ async function start() {
     }
     detailZeichnen();
   };
-  app.viewer.onSchnitteGeaendert = () => {
-    $("schnitt-anzahl").textContent = app.viewer.anzahlSchnitte;
-    if (!$("panel").hidden && ansichtEinstellungen().reiter === "schnitte" && !document.activeElement?.dataset?.achse) panelZeichnen();
+  app.viewer.onWerkzeugEnde = () => hinweisModus();
+  app.viewer.onEbeneErstellt = (e) => {
+    if (!e) return;
+    app.viewer.schnittboxAus();
+    schnittNeu("ebene", { ebene: e }, false);
+    zeigeHinweis("Schnitt angelegt – links unter „Schnitte“ umbenennen, umschalten oder umdrehen.");
   };
   {
     const e = ansichtEinstellungen();
@@ -148,7 +151,11 @@ async function modelleLaden() {
     zeigeHinweis(`Modell ${id} wird geladen …`);
     try {
       if (/\.ifc$/i.test(v.datei)) await ifcLaden(id, v);
-      else if (/\.fbx$/i.test(v.datei)) {
+      else if (/\.png$/i.test(v.datei) && v.plan) {
+        await app.viewer.ladePlan(id, await app.ablage.liesBinaer(v.datei), v.plan);
+        app.geladeneModelle.set(id, v.hash);
+        continue;                                  // Pläne: anfangs ausgeblendet, eigene Liste
+      } else if (/\.fbx$/i.test(v.datei)) {
         const info = v.info ? JSON.parse(new TextDecoder("utf-8").decode(await app.ablage.liesBinaer(v.info))) : null;
         await app.viewer.ladeFbx(id, await app.ablage.liesBinaer(v.datei), info);
       } else await app.viewer.ladeModell(id, await app.ablage.liesBinaer(v.datei));
@@ -173,7 +180,32 @@ async function modelleLaden() {
   ebenenSchalter();
   inhalteZeichnen();
   zeigeHinweis(app.geladeneModelle.size ? "" :
-    "Noch kein Modell. Links „+ Modell laden“ (IFC/FBX) oder in Revit: DBK → Modelle zum Viewer.");
+    "Noch kein Modell. Links „+ Modell laden“ (IFC/FBX) oder in Revit: Durchbruchskoordination › Ansichten.");
+}
+
+/** „Decke 335 × 270 mm, Tiefe 300 · UK −0,18 m · OK +0,12 m“ – aus den Objektdaten. */
+function masseText(od) {
+  const m = od.geometrie?.masse || {}, mm = (v) => Math.round(v).toLocaleString("de-DE");
+  const meter = (v) => (v >= 0 ? "+" : "−") + (Math.abs(v) / 1000).toFixed(2).replace(".", ",") + " m";
+  let teil;
+  if (m.durchmesser) teil = `Ø ${mm(m.durchmesser)} mm`;
+  else if (m.laenge) teil = `B × L ${mm(m.breite)} × ${mm(m.laenge)} mm`;
+  else if (m.breite) teil = `B × H ${mm(m.breite)} × ${mm(m.hoehe)} mm`;
+  else teil = od.groesse || "";
+  const art = od.lage === "decke" ? "Decke" : od.lage === "wand" ? "Wand" : "";
+  return [[art, teil].filter(Boolean).join(" "), m.tiefe ? `Tiefe ${mm(m.tiefe)}` : "",
+    od.uk_mm != null ? "UK " + meter(od.uk_mm) : "", od.ok_mm != null ? "OK " + meter(od.ok_mm) : ""].filter(Boolean).join(" · ");
+}
+
+/** Geladene Modelle, die es laut Zustand nicht mehr gibt (entfernt), aus der Szene nehmen. */
+async function modelleAbgleichen() {
+  for (const id of [...app.geladeneModelle.keys()]) {
+    if (app.zustand.modelle[id]) continue;
+    await app.viewer.entferneModell(id);
+    app.geladeneModelle.delete(id);
+    app.sichtbareModelle.delete(id);
+  }
+  inhalteZeichnen();
 }
 
 /** IFC: vorhandene Fragments nutzen, sonst einmal umwandeln und für alle ablegen. */
@@ -239,13 +271,157 @@ function modellDialog(datei) {
   };
 }
 
+// ---------------------------------------------------------------- Schnitte: benannt, Liste, umschalten
+
+/**
+ * Gespeicherte Schnitte (in diesem Browser, je Projekt): {id, name, art: "box"|"ebene", box: {min, max}, ebene: {normal, punkt}}.
+ * Immer höchstens einer ist aktiv – Umschalten in der Liste links oder oben im Auswahlfeld.
+ */
+function schnittDaten(neu) {
+  const schluessel = "schnitte-" + (app.projekt.name || "projekt");
+  const d = lokal(schluessel) || { liste: [], aktiv: null };
+  if (neu) { Object.assign(d, neu); lokal(schluessel, d); }
+  return d;
+}
+
+function schnittAktiv() {
+  const d = schnittDaten();
+  return d.liste.find((s) => s.id === d.aktiv) || null;
+}
+
+/** Änderungen am aktiven Schnitt (Pfeil gezogen, Regler) in die Liste übernehmen. */
+function schnittMerken() {
+  const d = schnittDaten(), s = d.liste.find((x) => x.id === d.aktiv), v = app.viewer;
+  if (!s) return;
+  if (s.art === "box" && v.box.an) s.box = { min: v.box.min.toArray(), max: v.box.max.toArray() };
+  if (s.art === "ebene") { const e = v.ebeneLesen(); if (e) s.ebene = e; }
+  schnittDaten(d);
+}
+
+function schnittAktivieren(id) {
+  schnittMerken();
+  app.auswahlBox = false;
+  const d = schnittDaten(), s = d.liste.find((x) => x.id === id) || null, v = app.viewer;
+  v.ebeneSetzen(s?.art === "ebene" ? s.ebene : null);
+  if (s?.art === "box") v.schnittboxSetzen(new THREE.Vector3(...s.box.min), new THREE.Vector3(...s.box.max));
+  else v.schnittboxAus();
+  schnittDaten({ aktiv: s ? s.id : null });
+  schnitteZeichnen();
+}
+
+function schnittNeu(art, werte, merken = true) {
+  if (merken) schnittMerken();
+  const d = schnittDaten();
+  const nr = d.liste.filter((s) => s.art === art).length + 1;
+  const s = { id: Math.random().toString(36).slice(2, 10), name: (art === "box" ? "Box " : "Schnitt ") + nr, art, ...werte };
+  d.liste.push(s);
+  d.aktiv = s.id;
+  schnittDaten(d);
+  schnitteZeichnen();
+  return s;
+}
+
+function schnitteZeichnen() {
+  const d = schnittDaten(), v = app.viewer, offen = app.offenerSchnitt;
+  const wahl = $("schnitt-wahl");
+  wahl.innerHTML = `<option value="">Kein Schnitt</option>` +
+    d.liste.map((s) => `<option value="${esc(s.id)}">${esc(s.name)}</option>`).join("");
+  wahl.value = d.aktiv || "";
+  wahl.classList.toggle("an", !!d.aktiv);
+  const zeile = (s) => {
+    const an = s.id === d.aktiv;
+    const art = s.art === "box" ? "Schnittbox" : (Math.abs(s.ebene?.normal?.[1] || 0) > 0.9 ? "Schnitt waagrecht" : "Schnitt senkrecht");
+    return `<div class="i-zeile s-zeile ${an ? "s-an" : "aus"}">
+      <div class="i-oben">
+        <button class="s-punkt ${an ? "an" : ""}" data-s-an="${esc(s.id)}" title="${an ? "Ausschalten" : "Diesen Schnitt zeigen"}"></button>
+        <span class="i-name" data-s-name="${esc(s.id)}" title="Doppelklick: umbenennen">${esc(s.name)}</span>
+        <button class="i-knopf ${offen === s.id ? "an" : ""}" data-s-mehr="${esc(s.id)}" title="${s.art === "box" ? "Seiten verschieben" : "Umdrehen"}">⌖</button>
+        <button class="i-knopf" data-s-weg="${esc(s.id)}" title="Schnitt löschen">✕</button>
+      </div>
+      <div class="i-klein">${art}</div>
+      ${offen === s.id ? schnittMehr(s, an) : ""}
+    </div>`;
+  };
+  $("i-schnitte").innerHTML = (d.liste.length ? d.liste.map(zeile).join("") :
+    `<div class="leer">Noch kein Schnitt. Oben „+ Schnitt“ (auf eine Fläche klicken) oder „+ Box“.</div>`);
+  const liste = $("i-schnitte");
+  liste.querySelectorAll("[data-s-an]").forEach((b) => b.onclick = () =>
+    schnittAktivieren(b.dataset.sAn === schnittDaten().aktiv ? null : b.dataset.sAn));
+  liste.querySelectorAll("[data-s-name]").forEach((el) => el.ondblclick = () => {
+    const dd = schnittDaten(), s = dd.liste.find((x) => x.id === el.dataset.sName);
+    const name = prompt("Name des Schnitts:", s.name);
+    if (name && name.trim()) { s.name = name.trim(); schnittDaten(dd); schnitteZeichnen(); }
+  });
+  liste.querySelectorAll("[data-s-name]").forEach((el) => el.onclick = () => {
+    if (schnittDaten().aktiv !== el.dataset.sName) schnittAktivieren(el.dataset.sName);
+  });
+  liste.querySelectorAll("[data-s-mehr]").forEach((b) => b.onclick = () => {
+    app.offenerSchnitt = app.offenerSchnitt === b.dataset.sMehr ? null : b.dataset.sMehr;
+    if (app.offenerSchnitt && schnittDaten().aktiv !== app.offenerSchnitt) schnittAktivieren(app.offenerSchnitt);
+    else schnitteZeichnen();
+  });
+  liste.querySelectorAll("[data-s-weg]").forEach((b) => b.onclick = () => {
+    const dd = schnittDaten();
+    if (dd.aktiv === b.dataset.sWeg) { v.ebeneSetzen(null); v.schnittboxAus(); dd.aktiv = null; }
+    dd.liste = dd.liste.filter((x) => x.id !== b.dataset.sWeg);
+    schnittDaten(dd);
+    schnitteZeichnen();
+  });
+  schnittMehrVerbinden(liste);
+}
+
+function schnittMehr(s, an) {
+  if (s.art === "ebene") {
+    return `<div class="i-mehr"><div class="reihe"><button data-s-drehen>Andere Seite wegschneiden</button></div>
+      <span class="p-klein">Die Ebene im Bild am Pfeil verschieben – die Lage wird beim Umschalten gemerkt.</span></div>`;
+  }
+  const g = app.viewer.modellGrenzen(), b = s.box;
+  const regler = (k, i, name) => {
+    const lo = g.min[k], hi = g.max[k], schritt = Math.max(0.05, (hi - lo) / 400);
+    return `<span>${name}</span>
+      <input type="range" data-s-achse="${k}" data-s-seite="min" min="${lo}" max="${hi}" step="${schritt}" value="${b.min[i]}">
+      <input type="range" data-s-achse="${k}" data-s-seite="max" min="${lo}" max="${hi}" step="${schritt}" value="${b.max[i]}">`;
+  };
+  return `<div class="i-mehr">
+    <div class="s-regler">${regler("x", 0, "Ost–West")}${regler("z", 2, "Nord–Süd")}${regler("y", 1, "Höhe")}</div>
+    <div class="reihe"><button data-s-auswahl title="Um den gewählten Durchbruch bzw. das gewählte Bauteil">Um Auswahl</button>
+      <button data-s-geschoss title="Höhe auf das oben gewählte Geschoss begrenzen">Auf Geschoss</button></div>
+    ${an ? "" : `<span class="p-klein">Zum Verschieben erst einschalten (Punkt links).</span>`}</div>`;
+}
+
+function schnittMehrVerbinden(liste) {
+  const box = liste.querySelector(".i-mehr");
+  if (!box) return;
+  const v = app.viewer;
+  const drehen = box.querySelector("[data-s-drehen]");
+  if (drehen) drehen.onclick = async () => {
+    const id = [...v.clipper.list.keys()][0];
+    if (id) { await v.schnittUmdrehen(id); schnittMerken(); }
+  };
+  box.querySelectorAll("input[data-s-achse]").forEach((r) => {
+    r.oninput = () => { if (v.box.an) v.schnittboxSeite(r.dataset.sAchse, r.dataset.sSeite, parseFloat(r.value)); };
+    r.onchange = () => { schnittMerken(); };
+  });
+  const auswahl = box.querySelector("[data-s-auswahl]");
+  if (auswahl) auswahl.onclick = () => { v.schnittboxUm(app.auswahl); schnittMerken(); schnitteZeichnen(); };
+  const geschoss = box.querySelector("[data-s-geschoss]");
+  if (geschoss) geschoss.onclick = () => {
+    const i = v.ebenen.findIndex((x) => x.name === v.geschoss);
+    if (i < 0) { zeigeHinweis("Oben zuerst ein Geschoss wählen."); return; }
+    const g = v.modellGrenzen(), lo = v.ebenen[i].y - 0.3, hi = v.ebenen[i + 1] ? v.ebenen[i + 1].y : g.max.y;
+    v.schnittboxSetzen(new THREE.Vector3(v.box.min.x, lo, v.box.min.z), new THREE.Vector3(v.box.max.x, hi, v.box.max.z));
+    schnittMerken();
+    schnitteZeichnen();
+  };
+}
+
 // ---------------------------------------------------------------- Einstellungsfenster „Ansicht“
 
 function ansichtEinstellungen(neu) {
   const alt = lokal("ansicht") || {};
-  const e = { reiter: "schnitte", nav: { ...NAV_STANDARD }, nichtLaden: [], boxRahmen: true, griffe: true, ...alt };
+  const e = { reiter: "navigation", nav: { ...NAV_STANDARD }, nichtLaden: [], boxRahmen: true, griffe: true, ...alt };
   if (neu) { Object.assign(e, neu); lokal("ansicht", e); }
-  if (e.reiter === "modelle") e.reiter = "schnitte";   // Modelle stehen jetzt in der Seitenleiste
+  if (e.reiter === "modelle" || e.reiter === "schnitte") e.reiter = "navigation";   // stehen jetzt in der Seitenleiste
   return e;
 }
 
@@ -260,34 +436,12 @@ function panelUmschalten() {
 
 function panelZeichnen() {
   const e = ansichtEinstellungen();
-  const reiter = [["schnitte", "Schnitte"], ["navigation", "Navigation"], ["darstellung", "Darstellung"]];
+  const reiter = [["navigation", "Navigation"], ["darstellung", "Darstellung"]];
   const kopf = `<div class="p-kopf">${reiter.map(([k, n]) => `<button data-reiter="${k}" class="${e.reiter === k ? "an" : ""}">${n}</button>`).join("")}
     <button class="p-zu" title="Schließen">✕</button></div>`;
   let inhalt = "";
   const v = app.viewer;
-  if (e.reiter === "schnitte") {
-    const g = v.modellGrenzen(), b = v.box;
-    const regler = (achse, name) => {
-      const lo = g.min[achse], hi = g.max[achse], schritt = Math.max(0.05, (hi - lo) / 400);
-      const wmin = b.an ? b.min[achse] : lo, wmax = b.an ? b.max[achse] : hi;
-      return `<div class="p-regler"><span>${name}</span>
-        <input type="range" data-achse="${achse}" data-seite="min" min="${lo}" max="${hi}" step="${schritt}" value="${wmin}">
-        <input type="range" data-achse="${achse}" data-seite="max" min="${lo}" max="${hi}" step="${schritt}" value="${wmax}"></div>`;
-    };
-    const frei = v.freieSchnitte();
-    inhalt = `<div class="p-abschnitt">Schnittbox</div>
-      <label class="p-haupt"><input type="checkbox" id="p-box" ${b.an ? "checked" : ""}> Schnittbox ein</label>
-      ${regler("x", "Ost–West")}${regler("z", "Nord–Süd")}${regler("y", "Höhe")}
-      <div class="p-knoepfe"><button id="p-box-auswahl" title="Um den gewählten Durchbruch bzw. das gewählte Bauteil">Um Auswahl</button>
-        <button id="p-box-geschoss" title="Höhe auf das gewählte Geschoss begrenzen">Auf Geschoss</button>
-        <button id="p-box-alles">Zurücksetzen</button></div>
-      <label class="p-klein"><input type="checkbox" id="p-rahmen" ${e.boxRahmen ? "checked" : ""}> Rahmen der Box zeigen</label>
-      <div class="p-abschnitt">Schnittebenen</div>
-      ${frei.length ? frei.map((s) => `<div class="p-zeile"><label><input type="checkbox" data-schnitt="${esc(s.id)}" ${s.an ? "checked" : ""}> ${esc(s.beschreibung)}</label>
-        <span><button data-umdrehen="${esc(s.id)}" title="Andere Seite wegschneiden">⇅</button><button data-loeschen="${esc(s.id)}" title="Löschen">✕</button></span></div>`).join("")
-        : `<p class="p-klein">Keine. Oben „Schnitt setzen“, dann auf eine Fläche klicken; die Ebene am Pfeil ziehen.</p>`}
-      <label class="p-klein"><input type="checkbox" id="p-griffe" ${e.griffe ? "checked" : ""}> Ebenen und Pfeile anzeigen</label>`;
-  } else if (e.reiter === "navigation") {
+  if (e.reiter === "navigation") {
     inhalt = `<div class="p-abschnitt">Maussteuerung</div>
       ${Object.entries(NAVIGATION).map(([k, n]) => `<label class="p-wahl"><input type="radio" name="p-nav" value="${k}" ${e.nav.art === k ? "checked" : ""}>
         <span><b>${esc(n.name)}</b><br><span class="p-klein">${esc(n.hilfe)}</span></span></label>`).join("")}
@@ -297,36 +451,19 @@ function panelZeichnen() {
       <p class="p-klein">Doppelklick auf ein Bauteil zoomt heran. „Alles zeigen“ oben setzt die Ansicht zurück.</p>`;
   } else {
     inhalt = `<div class="p-abschnitt">Darstellung</div>
-      <label class="p-haupt"><input type="checkbox" id="p-beschriftung" ${v.beschriftung ? "checked" : ""}> Beschriftung der Durchbrüche (Nummer · Größe)</label>`;
+      <label class="p-haupt"><input type="checkbox" id="p-beschriftung" ${v.beschriftung ? "checked" : ""}> Beschriftung der Durchbrüche (Nummer · Größe)</label>
+      <label class="p-haupt"><input type="checkbox" id="p-rahmen" ${e.boxRahmen ? "checked" : ""}> Rahmen der Schnittbox zeigen</label>
+      <label class="p-haupt"><input type="checkbox" id="p-griffe" ${e.griffe ? "checked" : ""}> Schnittebene mit Pfeil zum Verschieben zeigen</label>`;
   }
   const p = $("panel");
   p.innerHTML = kopf + `<div class="p-inhalt">${inhalt}</div>`;
 
   p.querySelectorAll("[data-reiter]").forEach((b) => b.onclick = () => { ansichtEinstellungen({ reiter: b.dataset.reiter }); panelZeichnen(); });
   p.querySelector(".p-zu").onclick = panelUmschalten;
-  const box = p.querySelector("#p-box");
-  if (box) {
-    box.onchange = () => { box.checked ? v.schnittboxSetzen(v.modellGrenzen().min, v.modellGrenzen().max) : v.schnittboxAus(); panelZeichnen(); };
-    p.querySelectorAll("input[data-achse]").forEach((r) => r.oninput = () => {
-      if (!v.box.an) { const g = v.modellGrenzen(); v.schnittboxSetzen(g.min, g.max); p.querySelector("#p-box").checked = true; }
-      v.schnittboxSeite(r.dataset.achse, r.dataset.seite, parseFloat(r.value));
-    });
-    p.querySelector("#p-box-auswahl").onclick = () => { v.schnittboxUm(app.auswahl); panelZeichnen(); };
-    p.querySelector("#p-box-alles").onclick = () => { v.schnittboxAus(); panelZeichnen(); };
-    p.querySelector("#p-box-geschoss").onclick = () => {
-      const i = v.ebenen.findIndex((x) => x.name === v.geschoss);
-      if (i < 0) { zeigeHinweis("Oben zuerst ein Geschoss wählen."); return; }
-      const g = v.modellGrenzen(), lo = v.ebenen[i].y - 0.3, hi = v.ebenen[i + 1] ? v.ebenen[i + 1].y : g.max.y;
-      v.schnittboxSetzen(new THREE.Vector3(g.min.x, lo, g.min.z), new THREE.Vector3(g.max.x, hi, g.max.z));
-      panelZeichnen();
-    };
-    p.querySelector("#p-rahmen").onchange = (ev) => { ansichtEinstellungen({ boxRahmen: ev.target.checked }); v.boxRahmen = ev.target.checked; v._boxAnwenden(v.box.an); };
-    p.querySelector("#p-griffe").onchange = (ev) => { ansichtEinstellungen({ griffe: ev.target.checked }); v.schnittGriffeZeigen(ev.target.checked); };
-    p.querySelectorAll("input[data-schnitt]").forEach((c) => c.onchange = () => v.schnittUmschalten(c.dataset.schnitt, c.checked));
-    p.querySelectorAll("[data-umdrehen]").forEach((b) => b.onclick = async () => { await v.schnittUmdrehen(b.dataset.umdrehen); panelZeichnen(); });
-    p.querySelectorAll("[data-loeschen]").forEach((b) => b.onclick = async () => { await v.schnittLoeschen(b.dataset.loeschen); panelZeichnen(); });
-  }
-  const nav = () => {
+  const rahmen = p.querySelector("#p-rahmen");
+  if (rahmen) rahmen.onchange = (ev) => { ansichtEinstellungen({ boxRahmen: ev.target.checked }); v.boxRahmen = ev.target.checked; v._boxAnwenden(v.box.an); };
+  const griffe = p.querySelector("#p-griffe");
+  if (griffe) griffe.onchange = (ev) => { ansichtEinstellungen({ griffe: ev.target.checked }); v.schnittGriffeZeigen(ev.target.checked); };  const nav = () => {
     const n = { art: p.querySelector("input[name=p-nav]:checked").value, drehpunkt: p.querySelector("#p-drehpunkt").checked,
       zoomZumCursor: p.querySelector("#p-cursor").checked, tempo: parseFloat(p.querySelector("#p-tempo").value) };
     ansichtEinstellungen({ nav: n });
@@ -343,6 +480,7 @@ function panelZeichnen() {
 const AUGE = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>`;
 const AUGE_ZU = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><path d="M4 4l16 16"/></svg>`;
 const OHNE_STAND = "";
+const EINREICHUNG = { neu: "neu", geaendert: "geändert" };
 const ACHSEN = [["x_mm", "Ost–West", 20000, 10, "mm"], ["y_mm", "Nord–Süd", 20000, 10, "mm"],
   ["z_mm", "Höhe", 10000, 10, "mm"], ["drehung_grad", "Drehung", 180, 0.5, "°"]];
 
@@ -369,8 +507,23 @@ function inhalteZeichnen() {
   if (!app.viewer) return;
   const v = app.viewer, ansicht = ansichtEinstellungen();
   // Modelle
-  const modelle = Object.entries(app.zustand.modelle).sort(([a, x], [b, y]) =>
+  const alleModelle = Object.entries(app.zustand.modelle).sort(([a, x], [b, y]) =>
     String(x.aktuell?.name || a).localeCompare(String(y.aktuell?.name || b), "de"));
+  const modelle = alleModelle.filter(([, m]) => !m.aktuell?.plan);
+  const plaene = alleModelle.filter(([, m]) => m.aktuell?.plan);
+  $("i-plaene-kopf").hidden = !plaene.length;
+  $("i-plaene").innerHTML = plaene.map(([id, m]) => {
+    const an = v.modellSichtbar(id), p = m.aktuell.plan;
+    const info = [p.art === "schnitt" ? "Schnitt" : "Grundriss", p.ebene, m.aktuell.stand, m.besitzer].filter(Boolean).join(" · ");
+    return `<div class="i-zeile ${an ? "" : "aus"}">
+      <div class="i-oben">
+        <button class="i-auge ${an ? "" : "zu"}" data-plan-auge="${esc(id)}" ${app.geladeneModelle.has(id) ? "" : "disabled"} title="${an ? "Ausblenden" : "Einblenden"}">${an ? AUGE : AUGE_ZU}</button>
+        <span class="i-name" title="${esc(m.aktuell.quelle || "")}">${esc(m.aktuell.name || id)}</span>
+        ${m.besitzer === app.absender.firma ? `<button class="i-knopf" data-plan-weg="${esc(id)}" title="Plan für alle entfernen">✕</button>` : ""}
+      </div>
+      <div class="i-klein" title="${esc(info)}">${esc(info)}</div>
+    </div>`;
+  }).join("");
   // Während jemand an einem Regler zieht oder eine Zahl tippt, die Modell-Liste nicht neu aufbauen
   const tippt = document.activeElement?.tagName === "INPUT" && document.activeElement.closest(".i-mehr");
   if (!tippt) $("i-modelle").innerHTML = modelle.length ? modelle.map(([id, m]) => {
@@ -389,26 +542,33 @@ function inhalteZeichnen() {
       <div class="i-klein" title="${esc(info)}">${esc(info)}</div>
       ${offen ? modellMehr(id, m, geladen, nicht) : ""}
     </div>`;
-  }).join("") : `<div class="leer">Noch kein Modell. Unten laden oder in Revit „Modelle zum Viewer“.</div>`;
+  }).join("") : `<div class="leer">Noch kein Modell. Unten laden oder in Revit: Durchbruchskoordination › Ansichten.</div>`;
 
   // Durchbruch-Stände
   const aus = staendeAus(), staende = new Map();
   for (const e of eintraege()) {
     const s = e.o.stand || OHNE_STAND;
-    if (!staende.has(s)) staende.set(s, { anzahl: 0, [OFFEN]: 0, [BLOCKIERT]: 0, [FREIGABE]: 0 });
+    if (!staende.has(s)) staende.set(s, { anzahl: 0, firmen: new Set(), neu: 0, [OFFEN]: 0, [BLOCKIERT]: 0, [FREIGABE]: 0 });
     const z = staende.get(s);
     z.anzahl++;
+    z.firmen.add(e.o.besitzer);
+    if (e.o.einreichung === "neu" || e.o.einreichung === "geaendert") z.neu++;
     z[e.gs.wirkung] = (z[e.gs.wirkung] || 0) + 1;
   }
   const namen = [...staende.keys()].sort((a, b) => (a === OHNE_STAND) - (b === OHNE_STAND) || a.localeCompare(b, "de"));
   $("i-staende").innerHTML = namen.length ? namen.map((s) => {
-    const z = staende.get(s), an = !aus.has(s);
+    const z = staende.get(s), an = !aus.has(s), eigen = z.firmen.has(app.absender.firma);
+    const info = app.zustand.staende[`${app.absender.firma}|${s}`] || Object.values(app.zustand.staende).find((x) => x.stand === s);
+    const unter = [[...z.firmen].join(", "), info ? "eingereicht " + zeit(info.zeit) : "",
+      z.neu ? `${z.neu} neu/geändert` : ""].filter(Boolean).join(" · ");
     const chip = (w, t) => z[w] ? `<span class="pill ${w}" data-chip="${w}" data-stand="${esc(s)}" title="${t} – nur diese zeigen">${z[w]}</span>` : "";
     return `<div class="i-zeile ${an ? "" : "aus"}">
       <div class="i-oben">
         <button class="i-auge ${an ? "" : "zu"}" data-stand-auge="${esc(s)}" title="${an ? "Ausblenden" : "Einblenden"}">${an ? AUGE : AUGE_ZU}</button>
         <span class="i-name">${esc(s || "Ohne Stand")}</span><span class="p-klein">${z.anzahl}</span>
+        ${eigen ? `<button class="i-knopf" data-zurueck="${esc(s)}" title="Stand zurückziehen – alle eigenen Durchbrüche dieses Stands verschwinden für alle">↶</button>` : ""}
       </div>
+      <div class="i-klein" title="${esc(unter)}">${esc(unter)}</div>
       <div class="i-chips">${chip(OFFEN, "In Prüfung")}${chip(BLOCKIERT, "Abgelehnt")}${chip(FREIGABE, "Freigegeben")}</div>
     </div>`;
   }).join("") : `<div class="leer">Noch keine Durchbrüche eingereicht.</div>`;
@@ -436,6 +596,44 @@ function inhalteZeichnen() {
     $("filter-status").value = c.dataset.chip;
     allesZeichnen();
   });
+  leiste.querySelectorAll("[data-plan-auge]").forEach((b) => b.onclick = () => {
+    const id = b.dataset.planAuge, an = !v.modellSichtbar(id);
+    v.setzeModellSichtbar(id, an);
+    // Grundriss einblenden → passendes Geschoss im Grundriss-Modus
+    const p = app.zustand.modelle[id]?.aktuell?.plan;
+    if (an && p?.art === "grundriss" && p.ebene && app.viewer.modus === "plan" &&
+        [...$("geschoss").options].some((o) => o.value === p.ebene)) {
+      $("geschoss").value = p.ebene;
+      $("geschoss").dispatchEvent(new Event("change"));
+    }
+    inhalteZeichnen();
+  });
+  leiste.querySelectorAll("[data-plan-weg]").forEach((b) => b.onclick = async () => {
+    const id = b.dataset.planWeg, name = app.zustand.modelle[id]?.aktuell?.name || id;
+    if (!confirm(`Plan „${name}“ für alle entfernen?`)) return;
+    try {
+      await app.ablage.schreibe(app.absender, "modell_entfernt", null, { modell: id });
+      app.zustand = berechne(app.ablage.alle(), app.projekt);
+      await modelleAbgleichen();
+    } catch (e) { zeigeHinweis("Entfernen fehlgeschlagen: " + e.message); }
+  });
+  leiste.querySelectorAll("[data-zurueck]").forEach((b) => b.onclick = async () => {
+    const s = b.dataset.zurueck, name = s || "Ohne Stand";
+    const n = eintraege().filter((e) => (e.o.stand || OHNE_STAND) === s && e.o.besitzer === app.absender.firma).length;
+    if (!confirm(`Stand „${name}“ zurückziehen?\n\n${n} eigene Durchbrüche verschwinden für alle aus der Koordination, ` +
+      `auch ihre Prüf-Entscheidungen. Erneutes Einreichen beginnt von vorn.`)) return;
+    b.disabled = true;
+    try {
+      await app.ablage.schreibe(app.absender, "stand_zurueckgezogen", null, { stand: s });
+      app.zustand = berechne(app.ablage.alle(), app.projekt);
+      allesZeichnen();
+      zeigeHinweis(`Stand „${name}“ zurückgezogen.`);
+    } catch (e) {
+      console.error(e);
+      zeigeHinweis("Zurückziehen fehlgeschlagen: " + e.message);
+      b.disabled = false;
+    }
+  });
   modellMehrVerbinden(leiste);
 }
 
@@ -451,7 +649,8 @@ function modellMehr(id, m, geladen, nicht) {
     ${geladen && kats.length ? `<details><summary>${kats.length} Kategorien</summary><div class="p-kats">${kats.map((k) =>
       `<label><input type="checkbox" data-kat="${esc(k.name)}" ${k.an ? "checked" : ""}> ${esc(k.name)}${k.anzahl ? ` <span class="p-klein">${k.anzahl}</span>` : ""}</label>`).join("")}</div></details>` : ""}
     <div class="p-abschnitt">Ausrichten</div>
-    ${geladen ? `<div class="ausrichten">${ACHSEN.map(zeile).join("")}</div>
+    ${geladen ? `<button class="i-breit" data-ausr-punkte title="Denselben Punkt (z. B. Gebäudeecke, Achsschnitt) erst in diesem, dann im Referenzmodell anklicken – zweites Punktpaar für die Drehung">Mit Punkten an anderem Modell ausrichten …</button>
+    <div class="ausrichten">${ACHSEN.map(zeile).join("")}</div>
     <div class="reihe">
       <button data-ausr-reset title="${lokalA ? "Eigene Verschiebung verwerfen" : "Auf Ursprungslage"}">Zurücksetzen</button>
       ${eigen ? `<button data-ausr-alle title="Diese Lage gilt dann für alle Beteiligten">Für alle speichern</button>` : ""}
@@ -461,6 +660,8 @@ function modellMehr(id, m, geladen, nicht) {
     : `<span class="p-klein">Modell ist nicht geladen.</span>`}
     <label class="p-klein" title="Spart Zeit bei vielen oder großen Modellen. Für andere ändert sich nichts.">
       <input type="checkbox" data-nicht ${nicht ? "checked" : ""}> bei mir nicht laden</label>
+    ${eigen ? `<button class="i-entfernen" data-entfernen title="Das Modell verschwindet bei allen aus dem Viewer. Neu veröffentlichen holt es zurück.">Modell für alle entfernen</button>`
+      : `<span class="p-klein">Entfernen kann nur ${esc(m.besitzer)}.</span>`}
   </div>`;
 }
 
@@ -513,6 +714,24 @@ function modellMehrVerbinden(leiste) {
     }
     inhalteZeichnen();
   };
+  const punkte = box.querySelector("[data-ausr-punkte]");
+  if (punkte) punkte.onclick = () => zweiPunkteAusrichten(id);
+  const entfernen = box.querySelector("[data-entfernen]");
+  if (entfernen) entfernen.onclick = async () => {
+    const name = app.zustand.modelle[id]?.aktuell?.name || id;
+    if (!confirm(`„${name}“ für alle aus dem Viewer entfernen?\n\nDie Dateien bleiben im Projektordner. Neu veröffentlichen holt das Modell zurück.`)) return;
+    entfernen.disabled = true;
+    try {
+      await app.ablage.schreibe(app.absender, "modell_entfernt", null, { modell: id });
+      app.zustand = berechne(app.ablage.alle(), app.projekt);
+      await modelleAbgleichen();
+      zeigeHinweis(`„${name}“ entfernt.`);
+    } catch (e) {
+      console.error(e);
+      zeigeHinweis("Entfernen fehlgeschlagen: " + e.message);
+      entfernen.disabled = false;
+    }
+  };
   box.querySelector("input[data-nicht]").onchange = (ev) => {
     const liste = new Set(ansichtEinstellungen().nichtLaden);
     ev.target.checked ? liste.add(id) : liste.delete(id);
@@ -520,6 +739,55 @@ function modellMehrVerbinden(leiste) {
     if (ev.target.checked) { v.setzeModellSichtbar(id, false); zeigeHinweis("Wird beim nächsten Öffnen nicht mehr geladen."); inhalteZeichnen(); }
     else modelleLaden();
   };
+}
+
+/**
+ * Modell an einem anderen ausrichten: Punkt A1 in diesem Modell, gleicher Punkt B1 im Referenzmodell,
+ * optional A2/B2 für die Drehung um die Senkrechte. Ergebnis wie die Regler: lokal, „Für alle speichern“ beim Besitzer.
+ */
+async function zweiPunkteAusrichten(id) {
+  const v = app.viewer, name = app.zustand.modelle[id]?.aktuell?.name || id;
+  v.punktMarkenWeg();
+  const schritt = async (text, eigen) => {
+    zeigeHinweis(text);
+    $("viewer").focus();
+    for (;;) {
+      const t = await v.punktWaehlen();
+      if (!t) return null;
+      if (eigen && t.modell !== id) { zeigeHinweis(`Bitte auf „${name}“ klicken. ${text}`); continue; }
+      if (!eigen && t.modell === id) { zeigeHinweis(`Bitte auf das Referenzmodell klicken. ${text}`); continue; }
+      v.punktMarke(t.punkt, eigen ? 0xbe0a26 : 0x3b6d11);
+      return t;
+    }
+  };
+  const a1 = await schritt(`Ausrichten 1/4: Punkt an „${name}“ anklicken (rastet auf Ecken ein) – Esc bricht ab`, true);
+  if (!a1) { v.punktMarkenWeg(); hinweisModus(); return; }
+  const b1 = await schritt("Ausrichten 2/4: denselben Punkt im Referenzmodell anklicken", false);
+  if (!b1) { v.punktMarkenWeg(); hinweisModus(); return; }
+  const a2 = await schritt(`Ausrichten 3/4: zweiten Punkt an „${name}“ für die Drehung – Esc = nur verschieben`, true);
+  const b2 = a2 ? await schritt("Ausrichten 4/4: denselben zweiten Punkt im Referenzmodell", false) : null;
+
+  const alt = ausrichtungVon(id) || {};
+  const w0 = ((alt.drehung_grad || 0) * Math.PI) / 180;
+  const t0 = new THREE.Vector3((alt.x_mm || 0) / 1000, (alt.z_mm || 0) / 1000, -(alt.y_mm || 0) / 1000);
+  let w = 0;
+  if (a2 && b2) {
+    const da = a2.punkt.clone().sub(a1.punkt), db = b2.punkt.clone().sub(b1.punkt);
+    w = Math.atan2(-db.z, db.x) - Math.atan2(-da.z, da.x);
+  }
+  const c = v.ausrichtungsMitte(id);
+  const t = c.clone().add(t0).sub(a1.punkt).applyMatrix4(new THREE.Matrix4().makeRotationY(w)).add(b1.punkt).sub(c);
+  let grad = ((w0 + w) * 180) / Math.PI;
+  grad = ((grad + 540) % 360) - 180;
+  const a = { modell: id, x_mm: Math.round(t.x * 1000), y_mm: Math.round(-t.z * 1000), z_mm: Math.round(t.y * 1000),
+    drehung_grad: Math.round(grad * 1000) / 1000 };
+  ausrichtungLokal(id, a);
+  v.ausrichten(id, a);
+  setTimeout(() => v.punktMarkenWeg(), 2500);
+  app.offenesModell = id;
+  inhalteZeichnen();
+  zeigeHinweis(`„${name}“ ausgerichtet${a2 && b2 ? " (verschoben und gedreht)" : " (verschoben)"} – gilt erst bei Ihnen. ` +
+    (app.zustand.modelle[id]?.besitzer === app.absender.firma ? "„Für alle speichern“ übernimmt die Lage für alle." : ""));
 }
 
 /** Ablagefeld „+ Modell laden“: Klick oder Ziehen und Ablegen. */
@@ -612,6 +880,7 @@ function allesZeichnen() {
     <div class="eintrag ${e.id === app.auswahl ? "aktiv" : ""}" data-id="${esc(e.id)}">
       <span class="nr">${esc(e.o.daten.nummer)}</span>
       <span class="pill ${e.gs.wirkung}">${esc(statusName(e.gs))}</span>
+      ${EINREICHUNG[e.o.einreichung] ? `<span class="marke" title="Bei der letzten Einreichung des Stands">${EINREICHUNG[e.o.einreichung]}</span>` : ""}
       <span class="info">${esc([e.o.daten.ebene, wirtText(e.o.daten), e.o.daten.groesse].filter(Boolean).join(" · "))}
         · ${e.gs.pflicht_erfuellt}/${e.gs.pflicht_gesamt}</span>
     </div>`).join("")
@@ -625,10 +894,63 @@ function allesZeichnen() {
   detailZeichnen();
 }
 
+const AUSWAHL_RAND_M = 2.0;   // Schnittbox um den gewählten Durchbruch
+
+/** Klick auf einen Durchbruch: Schnittbox mit 2 m Abstand darum (abschaltbar unter „Schnitte“). */
+function auswahlBox(id) {
+  const v = app.viewer;
+  if (id && ansichtEinstellungen().autoBox !== false && app.viewer.meshes.has(id)) {
+    if (!app.auswahlBox) {
+      schnittMerken();
+      v.ebeneSetzen(null);
+      schnittDaten({ aktiv: null });
+      schnitteZeichnen();
+    }
+    v.schnittboxUm(id, AUSWAHL_RAND_M);
+    app.auswahlBox = true;
+  } else if (!id && app.auswahlBox) {
+    v.schnittboxAus();
+    app.auswahlBox = false;
+  }
+}
+
+/** Messen: immer zwei Punkte → Strecke. Läuft weiter, bis der Knopf erneut gedrückt (Messungen löschen) oder Esc. */
+async function messenUmschalten() {
+  const v = app.viewer, knopf = $("wk-messen");
+  if (app.misst) {
+    app.misst = false;
+    knopf.classList.remove("an");
+    v.messungenWeg();
+    if (v._werkzeug === "punkt") { const f = v._punktFertig; v._punktFertig = null; v._werkzeug = null; v.container.classList.remove("werkzeug-aktiv"); f?.(null); }
+    hinweisModus();
+    return;
+  }
+  app.misst = true;
+  knopf.classList.add("an");
+  while (app.misst) {
+    zeigeHinweis("Messen: ersten Punkt anklicken (rastet auf Ecken ein) – Esc beendet");
+    $("viewer").focus();
+    const a = await v.punktWaehlen(true);
+    if (!a || !app.misst) break;
+    v.punktMarke(a.punkt);
+    zeigeHinweis("Messen: zweiten Punkt anklicken – Esc beendet");
+    const b = await v.punktWaehlen(true);
+    v.punktMarkenWeg();
+    if (!b || !app.misst) break;
+    v.messungHinzu(a.punkt, b.punkt);
+  }
+  v.punktMarkenWeg();
+  app.misst = false;
+  knopf.classList.toggle("an", false);
+  zeigeHinweis(v.messungen?.length ? "Messungen bleiben stehen – „Messen“ zweimal klicken löscht sie." : "");
+  setTimeout(hinweisModus, 3000);
+}
+
 function waehle(id, fokus) {
   if (id && app.bauteil) { app.bauteil = null; app.viewer.bauteilWaehlen(null); }
   app.auswahl = id;
   app.viewer.waehle(id, fokus);
+  auswahlBox(id);
   document.querySelectorAll(".eintrag").forEach((el) => el.classList.toggle("aktiv", el.dataset.id === id));
   const el = document.querySelector(`.eintrag[data-id="${CSS.escape(id || "")}"]`);
   if (el) el.scrollIntoView({ block: "nearest" });
@@ -652,8 +974,8 @@ function detailZeichnen() {
 
   d.innerHTML = `
     <div class="detail-kopf"><h2>${esc(od.nummer)}</h2><span class="pill ${gs.wirkung}">${esc(statusName(gs))}</span></div>
-    <div class="meta">${esc([od.ebene, wirtText(od), od.groesse, od.uk_mm != null ? "UK " + (od.uk_mm / 1000).toFixed(2) + " m" : "",
-      (od.gewerke || []).join(", ")].filter(Boolean).join(" · "))}<br>
+    <div class="meta">${esc([od.ebene, wirtText(od), (od.gewerke || []).join(", ")].filter(Boolean).join(" · "))}<br>
+      <b>${esc(masseText(od))}</b>${od.revit_modell ? `<br><span title="Revit-Modell, aus dem der Durchbruch stammt">${esc(od.revit_modell)}</span>` : ""}<br>
       <span title="Firma, die den Durchbruch eingereicht hat">${esc(o.besitzer)}</span> · Runde ${esc(o.runden.map((r) => app.zustand.runden[r]?.name || r).join(", ") || "–")}</div>
     <div class="knoepfe">
       <button id="k-zoom" title="Im Modell heranzoomen">Zeigen</button>
@@ -679,7 +1001,7 @@ function detailZeichnen() {
     </div>`;
 
   $("k-zoom").onclick = () => app.viewer.fokus(o.id);
-  $("k-box").onclick = () => app.viewer.schnittboxUm(o.id);
+  $("k-box").onclick = () => { app.viewer.schnittboxUm(o.id, AUSWAHL_RAND_M); app.auswahlBox = true; };
   const text = () => $("k-text").value.trim();
   const fehler = (m) => { $("k-fehler").textContent = m; };
   const entscheide = async (wert) => {
@@ -708,7 +1030,7 @@ async function bauteilZeichnen(d, auswahl) {
       <p class="leer">Eigenschaften aus Revit (FBX-Export). Volle IFC-Eigenschaften gibt es, wenn das Modell als IFC veröffentlicht wird.</p>
       <div class="knoepfe" style="margin-top:10px"><button id="b-box">Schnittbox</button><button id="b-weg">Auswahl aufheben</button></div>`;
     $("b-weg").onclick = () => app.viewer.bauteilWaehlen(null);
-    $("b-box").onclick = () => app.viewer.schnittboxUm(null);
+    $("b-box").onclick = () => app.viewer.schnittboxUm(null, AUSWAHL_RAND_M);
     return;
   }
   d.innerHTML = `<div class="leer">Eigenschaften werden geladen …</div>`;
@@ -781,6 +1103,7 @@ async function nachladen() {
       const text = document.activeElement?.id === "k-text" ? $("k-text").value : null;
       app.zustand = berechne(app.ablage.alle(), app.projekt);
       if (neu.some((e) => e.art === "modell_veroeffentlicht")) await modelleLaden();
+      if (neu.some((e) => e.art === "modell_entfernt")) await modelleAbgleichen();
       if (neu.some((e) => e.art === "modell_ausrichtung")) {
         for (const id of app.geladeneModelle.keys()) app.viewer.ausrichten(id, ausrichtungVon(id));
       }
@@ -810,9 +1133,41 @@ function bedienelemente() {
   $("modus-3d").onclick = () => modus("3d");
   $("modus-plan").onclick = () => modus("plan");
   $("geschoss").onchange = async () => { await app.viewer.setzeGeschoss($("geschoss").value); allesZeichnen(); hinweisModus(); };
-  $("schnitt-ebene").onclick = () => { app.viewer.schnittEbeneSetzen(); zeigeHinweis("Auf eine Fläche klicken, um dort zu schneiden (Esc bricht ab)"); $("viewer").focus(); };
-  $("schnitt-box").onclick = () => app.viewer.schnittboxUm(app.auswahl);
-  $("schnitt-weg").onclick = () => app.viewer.schnitteLoeschen();
+  const neuerSchnitt = () => {
+    schnittMerken();
+    app.auswahlBox = false;
+    app.viewer.schnittEbeneSetzen();
+    zeigeHinweis("Neuer Schnitt: auf eine Fläche klicken (Esc bricht ab)");
+    $("viewer").focus();
+  };
+  const neueBox = () => {
+    schnittMerken();
+    app.auswahlBox = false;
+    app.viewer.ebeneSetzen(null);
+    app.viewer.schnittboxUm(app.auswahl, AUSWAHL_RAND_M);
+    const b = app.viewer.box;
+    const s = schnittNeu("box", { box: { min: b.min.toArray(), max: b.max.toArray() } }, false);
+    app.offenerSchnitt = s.id;
+    schnitteZeichnen();
+  };
+  $("schnitt-ebene").onclick = neuerSchnitt;
+  $("schnitt-box").onclick = neueBox;
+  $("sp-ebene").onclick = neuerSchnitt;
+  $("sp-box").onclick = neueBox;
+  $("wk-schnitte").onclick = () => {
+    $("schnitt-pop").hidden = !$("schnitt-pop").hidden;
+    $("wk-schnitte").classList.toggle("an", !$("schnitt-pop").hidden);
+  };
+  $("sp-auto").checked = ansichtEinstellungen().autoBox !== false;
+  $("sp-auto").onchange = () => {
+    ansichtEinstellungen({ autoBox: $("sp-auto").checked });
+    if (!$("sp-auto").checked && app.auswahlBox) { app.viewer.schnittboxAus(); app.auswahlBox = false; }
+    else if ($("sp-auto").checked && app.auswahl) auswahlBox(app.auswahl);
+  };
+  $("wk-messen").onclick = messenUmschalten;
+  $("schnitt-wahl").onchange = () => schnittAktivieren($("schnitt-wahl").value || null);
+  schnitteZeichnen();
+  { const s = schnittAktiv(); if (s) schnittAktivieren(s.id); }
   $("viewer").addEventListener("pointerup", () => setTimeout(hinweisModus, 50));
   for (const id of ["suche", "filter-status", "filter-ich"]) $(id).addEventListener("input", allesZeichnen);
   $("benutzer").onclick = async () => { app.absender = await startDialog(); zeigeBenutzer(); allesZeichnen(); };

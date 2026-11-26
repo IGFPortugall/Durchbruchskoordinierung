@@ -1,0 +1,110 @@
+<Page xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      FontFamily="Segoe UI" FontSize="12.5" Foreground="#18181b" Background="#fafafa">
+  <Page.Resources>
+    <SolidColorBrush x:Key="Text" Color="#18181b"/>
+    <SolidColorBrush x:Key="Grau" Color="#71717a"/>
+    <SolidColorBrush x:Key="Linie" Color="#e4e4e7"/>
+    <SolidColorBrush x:Key="LinieStark" Color="#d4d4d8"/>
+    <SolidColorBrush x:Key="Rot" Color="#be0a26"/>
+    <Style TargetType="Button">
+      <Setter Property="Background" Value="White"/>
+      <Setter Property="Foreground" Value="{StaticResource Text}"/>
+      <Setter Property="BorderBrush" Value="{StaticResource LinieStark}"/>
+      <Setter Property="Padding" Value="10,5"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border x:Name="Box" CornerRadius="6" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="1" Padding="{TemplateBinding Padding}">
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Box" Property="BorderBrush" Value="#a1a1aa"/></Trigger>
+              <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Box" Property="Opacity" Value="0.45"/></Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+    <Style x:Key="Gruen" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+      <Setter Property="Background" Value="#3B6D11"/><Setter Property="BorderBrush" Value="#3B6D11"/>
+      <Setter Property="Foreground" Value="White"/><Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+    <Style x:Key="RotKnopf" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+      <Setter Property="Background" Value="#be0a26"/><Setter Property="BorderBrush" Value="#be0a26"/>
+      <Setter Property="Foreground" Value="White"/><Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+    <Style TargetType="TextBox">
+      <Setter Property="Padding" Value="6,4"/>
+      <Setter Property="BorderBrush" Value="{StaticResource LinieStark}"/>
+    </Style>
+    <Style TargetType="ComboBox"><Setter Property="Height" Value="28"/><Setter Property="VerticalContentAlignment" Value="Center"/></Style>
+  </Page.Resources>
+
+  <Grid Margin="10">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+      <RowDefinition Height="2*" MinHeight="80"/><RowDefinition Height="6"/><RowDefinition Height="3*" MinHeight="120"/>
+    </Grid.RowDefinitions>
+
+    <!-- Kopf -->
+    <DockPanel>
+      <Button x:Name="l_neu" DockPanel.Dock="Right" Content="↻" Padding="8,2" ToolTip="Neu laden (passiert sonst alle 20 Sekunden von selbst)"/>
+      <StackPanel>
+        <TextBlock x:Name="l_projekt" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+        <TextBlock x:Name="l_wer" Foreground="{StaticResource Grau}" FontSize="11.5" TextTrimming="CharacterEllipsis"/>
+      </StackPanel>
+    </DockPanel>
+
+    <!-- Kennzahlen + Suche -->
+    <StackPanel Grid.Row="1" Margin="0,8,0,0">
+      <TextBox x:Name="l_suche" ToolTip="Nummer, Größe, Ebene oder Text im Verlauf"/>
+      <DockPanel Margin="0,6,0,0">
+        <CheckBox x:Name="l_ich" DockPanel.Dock="Right" Content="Für mich" IsChecked="True" VerticalAlignment="Center" Margin="8,0,0,0"
+                  ToolTip="Nur Durchbrüche, bei denen ich als Nächstes etwas tun muss"/>
+        <ComboBox x:Name="l_status" Width="120" Margin="0,0,6,0"/>
+        <ComboBox x:Name="l_stand"/>
+      </DockPanel>
+    </StackPanel>
+    <TextBlock Grid.Row="2" x:Name="l_zahlen" Foreground="{StaticResource Grau}" FontSize="11.5" Margin="0,6,0,4" TextWrapping="Wrap"/>
+
+    <!-- Liste -->
+    <ListBox Grid.Row="3" x:Name="l_liste" BorderBrush="{StaticResource Linie}" ScrollViewer.HorizontalScrollBarVisibility="Disabled"/>
+    <GridSplitter Grid.Row="4" HorizontalAlignment="Stretch" Height="6" Background="Transparent" ResizeDirection="Rows"/>
+
+    <!-- Detail -->
+    <Border Grid.Row="5" Background="White" BorderBrush="{StaticResource Linie}" BorderThickness="1" CornerRadius="8" Padding="10">
+      <DockPanel>
+        <StackPanel DockPanel.Dock="Top">
+          <DockPanel>
+            <TextBlock x:Name="d_status" DockPanel.Dock="Right" FontWeight="SemiBold" VerticalAlignment="Center"/>
+            <TextBlock x:Name="d_nummer" FontSize="15" FontWeight="Bold" TextTrimming="CharacterEllipsis"/>
+          </DockPanel>
+          <TextBlock x:Name="d_meta" Foreground="{StaticResource Grau}" TextWrapping="Wrap" Margin="0,2,0,0"/>
+          <WrapPanel Margin="0,6,0,0">
+            <Button x:Name="d_3d" Content="In 3D zeigen" Margin="0,0,6,4" ToolTip="Eigene 3D-Ansicht mit Schnittbox um den Durchbruch"/>
+            <Button x:Name="d_2d" Content="Im Grundriss" Margin="0,0,6,4" ToolTip="Eigener Grundriss-Ausschnitt um den Durchbruch"/>
+            <Button x:Name="d_markieren" Content="Nur markieren" Margin="0,0,6,4" ToolTip="In der aktiven Ansicht markieren und heranzoomen"/>
+          </WrapPanel>
+          <TextBlock x:Name="d_rollen" TextWrapping="Wrap" Margin="0,4,0,0" FontSize="11.5"/>
+        </StackPanel>
+        <StackPanel DockPanel.Dock="Bottom" Margin="0,8,0,0">
+          <TextBox x:Name="d_text" Height="52" TextWrapping="Wrap" AcceptsReturn="True" VerticalScrollBarVisibility="Auto"
+                   ToolTip="Kommentar zur Entscheidung oder Nachricht an alle"/>
+          <WrapPanel Margin="0,6,0,0">
+            <Button x:Name="d_frei" Style="{StaticResource Gruen}" Content="Freigeben" Margin="0,0,6,4"/>
+            <Button x:Name="d_ab" Style="{StaticResource RotKnopf}" Content="Ablehnen" Margin="0,0,6,4"/>
+            <ComboBox x:Name="d_weitere" Width="130" Margin="0,0,6,4" ToolTip="Weitere Status, z. B. Zurückgestellt"/>
+            <Button x:Name="d_senden" Content="Nachricht" Margin="0,0,0,4" ToolTip="Nur Nachricht, ohne Entscheidung"/>
+          </WrapPanel>
+          <TextBlock x:Name="l_meldung" Foreground="{StaticResource Grau}" FontSize="11.5" TextWrapping="Wrap"/>
+        </StackPanel>
+        <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,8,0,0">
+          <StackPanel x:Name="d_verlauf"/>
+        </ScrollViewer>
+      </DockPanel>
+    </Border>
+  </Grid>
+</Page>

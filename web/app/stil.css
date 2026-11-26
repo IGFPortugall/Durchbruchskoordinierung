@@ -168,3 +168,32 @@ label.p-klein { display: flex; gap: 5px; align-items: center; cursor: pointer; }
 .dialog label { display: flex; flex-direction: column; gap: 4px; color: var(--text-2); font-size: 12px; }
 .dialog input, .dialog select { width: 100%; height: 32px; padding: 4px 8px; border: 1px solid var(--linie-stark); border-radius: var(--radius); background: var(--flaeche); }
 .dialog .reihe { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
+.i-mehr .i-entfernen { margin-top: 8px; width: 100%; color: #be0a26; border-color: #f0c4cb; background: #fff; }
+.i-mehr .i-entfernen:hover { background: #fdf2f4; }
+.eintrag .marke { font-size: 11px; padding: 1px 6px; border-radius: 9px; background: #fff4e5; color: #854F0B; border: 1px solid #f3d9b1; }
+
+/* Schnitte in der Seitenleiste */
+.s-zeile .i-name { cursor: pointer; }
+.s-punkt { width: 16px; height: 16px; border-radius: 50%; border: 2px solid #a1a1aa; background: #fff; padding: 0; flex: none; cursor: pointer; }
+.s-punkt.an { border-color: #185fa5; background: radial-gradient(circle, #185fa5 45%, #fff 50%); }
+.s-zeile.s-an { border-color: #185fa5; box-shadow: inset 3px 0 0 #185fa5; }
+.s-regler { display: grid; grid-template-columns: 1fr; gap: 2px; margin: 4px 0 6px; }
+.s-regler span { font-size: 11px; color: #71717a; margin-top: 4px; }
+.s-regler input[type=range] { width: 100%; }
+.schnitt-wahl { max-width: 170px; }
+.schnitt-wahl.an { border-color: #185fa5; color: #185fa5; font-weight: 600; }
+.i-mehr .i-breit { width: 100%; margin: 2px 0 8px; }
+
+/* Werkzeuge unten links im 3D-Fenster: Schnitte, Messen */
+.werkzeugkasten { position: absolute; left: 10px; bottom: 52px; z-index: 5; display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.wk-knopf { display: flex; align-items: center; gap: 6px; background: var(--flaeche); border: 1px solid var(--linie-stark); border-radius: 10px;
+  padding: 6px 10px; font-size: 12.5px; box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+.wk-knopf.an { border-color: #185fa5; color: #185fa5; background: #eef4fb; font-weight: 600; }
+.schnitt-pop { width: 270px; max-height: 360px; overflow: auto; background: var(--flaeche); border: 1px solid var(--linie-stark);
+  border-radius: 12px; padding: 8px; box-shadow: 0 6px 24px rgba(0,0,0,.14); }
+.schnitt-pop[hidden] { display: none; }
+.sp-kopf { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.sp-kopf button { padding: 3px 8px; font-size: 12px; }
+.sp-auto { display: block; font-size: 12px; color: var(--text-2); margin: 2px 0 8px; }
+.mess-text { position: absolute; transform: translate(-50%, -120%); background: #185fa5; color: #fff; font-size: 12px; font-weight: 600;
+  padding: 2px 7px; border-radius: 6px; white-space: nowrap; pointer-events: none; }

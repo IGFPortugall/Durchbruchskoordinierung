@@ -1,0 +1,6 @@
+title: Durchbruchs-|prüfung
+tooltip: Leiste neben dem Modell (wie Eigenschaften) – Durchbrüche suchen, in Revit zeigen, freigeben oder ablehnen und kommentieren. Gleiche Daten wie im Viewer, Freigaben erscheinen dort und umgekehrt.
+author: DBK
+context: doc-project
+engine:
+  persistent: true

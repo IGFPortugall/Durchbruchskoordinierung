@@ -1,6 +1,0 @@
-﻿title: Modelle|zum Viewer
-tooltip: Eigenes Modell oder Verknüpfungen aus 3D-Ansichten als FBX/IFC exportieren und in den Viewer stellen. Je Ansicht eine Zeile; unveränderte Modelle werden übersprungen.
-author: DBK
-context: doc-project
-engine:
-  persistent: true

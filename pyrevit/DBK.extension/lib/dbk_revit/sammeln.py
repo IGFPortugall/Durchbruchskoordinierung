@@ -19,6 +19,10 @@ from dbk_core.ereignisse import ordnername
 WIRT_KATEGORIEN = [DB.BuiltInCategory.OST_Walls, DB.BuiltInCategory.OST_Floors,
                    DB.BuiltInCategory.OST_StructuralFraming, DB.BuiltInCategory.OST_Roofs,
                    DB.BuiltInCategory.OST_StructuralColumns, DB.BuiltInCategory.OST_StructuralFoundation]
+# Vorrang bei der Wirt-Suche: senkrechte Durchbrüche sitzen in Decken/Dächern/Bodenplatten, waagerechte in Wänden
+DECKEN_WIRTE = set(int(k) for k in (DB.BuiltInCategory.OST_Floors, DB.BuiltInCategory.OST_Roofs,
+                                    DB.BuiltInCategory.OST_StructuralFoundation))
+WAND_WIRTE = set(int(k) for k in (DB.BuiltInCategory.OST_Walls,))
 
 
 def eid(element_id):
@@ -194,18 +198,22 @@ class WirtSuche(object):
                     for zy in range(int(mi[1] // ZELLE_FT), int(ma[1] // ZELLE_FT) + 1):
                         self.raster.setdefault((zx, zy), []).append(i)
 
-    def finde(self, element):
+    def finde(self, element, box=None, bevorzugt=None):
+        """box: (min, max) in Fuß – die echte Öffnung; ohne: Begrenzungsbox des Elements.
+        bevorzugt: Kategorie-IDs, die zuerst gelten (Decken-Durchbruch → Decken/Dächer, Wand → Wände)."""
         if isinstance(element, DB.FamilyInstance) and element.Host is not None and element.Host.Category is not None:
             return self._daten(element.Host, element.Document.Title)
-        bb = element.get_BoundingBox(None)
-        if bb is None:
-            return {}
-        mi, ma = (bb.Min.X, bb.Min.Y, bb.Min.Z), (bb.Max.X, bb.Max.Y, bb.Max.Z)
+        if box is None:
+            bb = element.get_BoundingBox(None)
+            if bb is None:
+                return {}
+            box = ((bb.Min.X, bb.Min.Y, bb.Min.Z), (bb.Max.X, bb.Max.Y, bb.Max.Z))
+        mi, ma = box
         kandidaten = set()
         for zx in range(int(mi[0] // ZELLE_FT), int(ma[0] // ZELLE_FT) + 1):
             for zy in range(int(mi[1] // ZELLE_FT), int(ma[1] // ZELLE_FT) + 1):
                 kandidaten.update(self.raster.get((zx, zy), ()))
-        bester, beste_menge = None, 0.0
+        bester, beste_menge, vorrang = None, 0.0, False
         for i in kandidaten:
             wmi, wma, w, titel = self.eintraege[i]
             menge = 1.0
@@ -215,8 +223,11 @@ class WirtSuche(object):
                     menge = 0.0
                     break
                 menge *= d
-            if menge > beste_menge:
-                bester, beste_menge = (w, titel), menge
+            if menge <= 0:
+                continue
+            ist_vorrang = bool(bevorzugt) and w.Category is not None and eid(w.Category.Id) in bevorzugt
+            if (ist_vorrang and not vorrang) or (ist_vorrang == vorrang and menge > beste_menge):
+                bester, beste_menge, vorrang = (w, titel), menge, ist_vorrang
         return self._daten(bester[0], bester[1]) if bester else {}
 
     @staticmethod
@@ -250,46 +261,139 @@ _RUND = re.compile(r"(rund|kreis|kernbohr|Ø|bohrung)", re.I)
 
 
 def _param_mm(e, namen):
+    """(Wert in mm, Parametername) des ersten vorhandenen Längen-Parameters > 0 – Exemplar vor Typ."""
     for quelle in (e, e.Document.GetElement(e.GetTypeId())):
         if quelle is None:
             continue
         for n in namen:
             p = quelle.LookupParameter(n)
             if p is not None and p.StorageType == DB.StorageType.Double and p.AsDouble() > 0:
-                return p.AsDouble() * FUSS_MM
-    return None
+                return p.AsDouble() * FUSS_MM, n
+    return None, None
+
+
+# Welche Parameter die Öffnung beschreiben – „Gesamt …“ (Öffnung inkl. Abstände) vor dem Kern-Maß.
+# Im Prüfset unter „masse_parameter“ überschreibbar, z. B. {"breite": ["Öffnungsbreite"]}.
+MASSE_PARAMETER = {
+    "breite": ["Gesamt Breite", "Breite", "Width", "b"],
+    "hoehe": ["Gesamt Höhe", "Höhe", "Hoehe", "Height", "h"],
+    "laenge": ["Gesamt Länge", "Länge", "Laenge", "Length", "l"],
+    "tiefe": ["Gesamt Tiefe", "Tiefe", "Depth", "t"],
+    "durchmesser": ["Gesamt Durchmesser", "Durchmesser", "DN", "Diameter", "D"],
+}
+
+
+def _masse_parameter(pruefset):
+    eigen = (pruefset or {}).get("masse_parameter") or {}
+    return dict((k, list(eigen.get(k) or []) + v) for k, v in MASSE_PARAMETER.items())
+
+
+def koerper_box(element):
+    """Box (min, max in Fuß) aus den Volumenkörpern – ohne Symbol-/Modelllinien der Familie.
+
+    Durchbruchfamilien enthalten oft Linien zwischen den Ebenen; die Begrenzungsbox ist dann
+    mehrere Meter hoch. Fällt auf die Begrenzungsbox zurück, wenn es keine Körper gibt."""
+    lo, hi, _ = koerper_boxen(element)
+    if lo is None:
+        return None
+    return lo, hi
+
+
+def koerper_boxen(element):
+    """(min, max, lokal): achsparallele Box in Projektkoordinaten (Fuß) und die gedrehte Box im
+    Koordinatensystem des Exemplars – damit der Viewer schräge Wände und runde Deckendurchbrüche
+    richtig zeigt. lokal = {"mitte_mm", "achsen" (3 Einheitsvektoren), "groesse_mm"} oder None."""
+    opt = DB.Options()
+    opt.DetailLevel = DB.ViewDetailLevel.Fine
+    opt.IncludeNonVisibleObjects = False
+    lo, hi = [1e18] * 3, [-1e18] * 3
+    llo, lhi = [1e18] * 3, [-1e18] * 3
+    inst = element.GetTransform() if isinstance(element, DB.FamilyInstance) else DB.Transform.Identity
+    zurueck = inst.Inverse
+
+    def merken(p, a, b):
+        for k, v in enumerate((p.X, p.Y, p.Z)):
+            a[k] = min(a[k], v)
+            b[k] = max(b[k], v)
+
+    def koerper(geo, trafo):
+        if geo is None:
+            return
+        for g in geo:
+            if isinstance(g, DB.GeometryInstance):
+                koerper(g.GetSymbolGeometry(), trafo.Multiply(g.Transform))
+            elif isinstance(g, DB.Solid) and g.Volume > 1e-9:
+                bb = g.GetBoundingBox()
+                t = trafo.Multiply(bb.Transform)
+                for x in (bb.Min.X, bb.Max.X):
+                    for y in (bb.Min.Y, bb.Max.Y):
+                        for z in (bb.Min.Z, bb.Max.Z):
+                            p = t.OfPoint(DB.XYZ(x, y, z))
+                            merken(p, lo, hi)
+                            merken(zurueck.OfPoint(p), llo, lhi)
+
+    try:
+        koerper(element.get_Geometry(opt), DB.Transform.Identity)
+    except Exception:
+        pass
+    if lo[0] < 1e17:
+        mitte = inst.OfPoint(DB.XYZ(*[(llo[k] + lhi[k]) / 2.0 for k in range(3)]))
+        lokal = {"mitte_mm": [int(round(v * FUSS_MM)) for v in (mitte.X, mitte.Y, mitte.Z)],
+                 "achsen": [[round(v, 4) for v in (a.X, a.Y, a.Z)] for a in (inst.BasisX, inst.BasisY, inst.BasisZ)],
+                 "groesse_mm": [int(round((lhi[k] - llo[k]) * FUSS_MM)) for k in range(3)]}
+        return tuple(lo), tuple(hi), lokal
+    bb = element.get_BoundingBox(None)
+    if bb is None:
+        return None, None, None
+    return (bb.Min.X, bb.Min.Y, bb.Min.Z), (bb.Max.X, bb.Max.Y, bb.Max.Z), None
 
 
 def objekt_id(modellkuerzel, element):
     return "%s:%s" % (modellkuerzel, element.UniqueId)
 
 
-def objektdaten(element, modellkuerzel, firmenkuerzel, ebenenliste, wirtsuche):
-    bb = element.get_BoundingBox(None)
-    if bb is None:
+def objektdaten(element, modellkuerzel, firmenkuerzel, ebenenliste, wirtsuche, pruefset=None):
+    lo, hi, lokal = koerper_boxen(element)
+    if lo is None:
         return None
-    gmin = [int(round(v * FUSS_MM)) for v in (bb.Min.X, bb.Min.Y, bb.Min.Z)]
-    gmax = [int(round(v * FUSS_MM)) for v in (bb.Max.X, bb.Max.Y, bb.Max.Z)]
+    box = (lo, hi)
+    gmin = [int(round(v * FUSS_MM)) for v in box[0]]
+    gmax = [int(round(v * FUSS_MM)) for v in box[1]]
     fam, typ = familienname(element), typname(element)
-    wirt = wirtsuche.finde(element) if wirtsuche else {}
-    decke = wirt.get("kategorie") in ("Geschossdecken", "Dächer", "Floors", "Roofs")
     dx, dy, dz = gmax[0] - gmin[0], gmax[1] - gmin[1], gmax[2] - gmin[2]
+    namen = _masse_parameter(pruefset)
+    quelle = {}
 
-    durchmesser = _param_mm(element, ["Durchmesser", "DN", "Diameter", "D"])
+    def wert(art):
+        v, n = _param_mm(element, namen[art])
+        if v:
+            quelle[art] = n
+            return int(round(v))
+        return None
+
+    # Decke (senkrechter Durchbruch): hat Länge statt Höhe, oder Körper flacher als breit, oder Wirt ist Decke/Dach
+    hoehe, laenge = wert("hoehe"), wert("laenge")
+    vermutlich_decke = (laenge is not None and hoehe is None) or (hoehe is None and laenge is None and dz < min(dx, dy))
+    wirt = wirtsuche.finde(element, box, DECKEN_WIRTE if vermutlich_decke else WAND_WIRTE) if wirtsuche else {}
+    decke = (laenge is not None and hoehe is None) or \
+        wirt.get("kategorie") in ("Geschossdecken", "Dächer", "Floors", "Roofs") or \
+        (hoehe is None and laenge is None and dz < min(dx, dy))
+    durchmesser = wert("durchmesser")
     rund = bool(durchmesser) or bool(_RUND.search(fam + " " + typ))
+    tiefe = wert("tiefe") or (dz if decke else min(dx, dy))
     if rund:
-        d = int(round(durchmesser or (min(dx, dy) if decke else dz)))
-        masse, groesse, form = {"durchmesser": d}, "Ø%d" % d, "rund"
+        d = durchmesser or (min(dx, dy) if decke else min(max(dx, dy), dz))
+        masse, groesse, form = {"durchmesser": d, "tiefe": tiefe}, "Ø%d" % d, "rund"
         flaeche = 3.14159 * (d / 2000.0) ** 2
+    elif decke:
+        b = wert("breite") or max(dx, dy)
+        l = laenge or min(dx, dy)
+        masse, groesse, form = {"breite": b, "laenge": l, "tiefe": tiefe}, "%d×%d" % (b, l), "rechteck"
+        flaeche = b * l / 1e6
     else:
-        b = _param_mm(element, ["Breite", "Width", "b"])
-        h = _param_mm(element, ["Höhe", "Hoehe", "Height", "h"])
-        if decke:
-            b, h = b or max(dx, dy), h or min(dx, dy)
-        else:
-            b, h = b or max(dx, dy), h or dz
-        b, h = int(round(b)), int(round(h))
-        masse, groesse, form = {"breite": b, "hoehe": h}, "%d×%d" % (b, h), "rechteck"
+        b = wert("breite") or max(dx, dy)
+        h = hoehe or dz
+        masse, groesse, form = {"breite": b, "hoehe": h, "tiefe": tiefe}, "%d×%d" % (b, h), "rechteck"
         flaeche = b * h / 1e6
 
     geometrie = {"min": gmin, "max": gmax, "form": form, "masse": masse}
@@ -306,6 +410,10 @@ def objektdaten(element, modellkuerzel, firmenkuerzel, ebenenliste, wirtsuche):
         "ifc_guid": (ifc.AsString() if ifc else None) or "",
         "modell": modellkuerzel, "revit_modell": element.Document.Title,
         "geometrie": geometrie, "groesse": groesse, "uk_mm": gmin[2] - okff,   # UK über Ebene
+        "ok_mm": gmax[2] - okff,
+        "lage": "decke" if decke else "wand",
+        "masse_quelle": quelle,                 # welcher Revit-Parameter welches Maß geliefert hat
+        "ausrichtung": lokal,                   # gedrehte Box (Exemplar-Achsen) für die Darstellung
         "flaeche_m2": round(flaeche, 3),
         "wirt": wirt,
         "geometrie_hash": geometrie_hash(geometrie),

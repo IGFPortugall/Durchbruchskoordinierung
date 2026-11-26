@@ -30,7 +30,7 @@
       "stand": "2026-11-10"
      },
      "firma": "Architekt XY",
-     "id": "afc875ea0dbe420999d118db85d87d8b",
+     "id": "eefb2738b332427e8c3585a854f07e79",
      "name": "A. Klein",
      "objekt": null,
      "rolle": "ARC",
@@ -48,7 +48,7 @@
       "stand": "2026-11-10"
      },
      "firma": "Tragwerk Z",
-     "id": "4b1efc728f7c4cbd93aa19977bba8854",
+     "id": "8d4da8ed0de14d6f87561347b3105a14",
      "name": "M. Weber",
      "objekt": null,
      "rolle": "TWP",
@@ -64,7 +64,7 @@
       "runde": "R1"
      },
      "firma": "IGF",
-     "id": "fd9af1d16dc74478bf4658421bb69c7d",
+     "id": "c2d100c72d9d42be89c324904be950dc",
      "name": "T. Planer",
      "objekt": null,
      "rolle": "TGA",
@@ -115,7 +115,7 @@
       "stand": "EG Rohbau"
      },
      "firma": "IGF",
-     "id": "e86fa8834b194c108d92339dcb8f8606",
+     "id": "df7373c65b0c40248526a27aaf0a6d0d",
      "name": "T. Planer",
      "objekt": "HLS:db-0001",
      "rolle": "TGA",
@@ -166,7 +166,7 @@
       "stand": "EG Rohbau"
      },
      "firma": "IGF",
-     "id": "1183c45684bc412782a89c2e8ba841ca",
+     "id": "1b896cc9373741c7971374527d03a273",
      "name": "T. Planer",
      "objekt": "HLS:db-0002",
      "rolle": "TGA",
@@ -216,7 +216,7 @@
       "stand": "EG Rohbau"
      },
      "firma": "IGF",
-     "id": "a8f4a0bb992940828d62f868a824dc68",
+     "id": "bc078f52efa448fd9df27c12a032053f",
      "name": "T. Planer",
      "objekt": "HLS:db-0003",
      "rolle": "TGA",
@@ -267,7 +267,7 @@
       "stand": "EG Rohbau"
      },
      "firma": "IGF",
-     "id": "54648c2b2012406bbbfbb5a4694abe62",
+     "id": "fc339ff63a5343129e385f256f6bbe1d",
      "name": "T. Planer",
      "objekt": "HLS:db-0004",
      "rolle": "TGA",
@@ -318,7 +318,7 @@
       "stand": "EG Rohbau"
      },
      "firma": "IGF",
-     "id": "c12d49762d8e4315b4a4a6ab0e06eed6",
+     "id": "655f01fcceb6473986fac5fcad625359",
      "name": "T. Planer",
      "objekt": "HLS:db-0005",
      "rolle": "TGA",
@@ -369,7 +369,7 @@
       "stand": "Obergeschosse"
      },
      "firma": "IGF",
-     "id": "dc2503ac20d3446f8b8b6af6ae3f90fb",
+     "id": "d8916cea770d415cb64517fc29e21c3a",
      "name": "T. Planer",
      "objekt": "HLS:db-0006",
      "rolle": "TGA",
@@ -420,7 +420,7 @@
       "stand": "Obergeschosse"
      },
      "firma": "IGF",
-     "id": "9d2c63c510834b169dec1367216de686",
+     "id": "97faad871f5f4cfa9c1855e9d2c65388",
      "name": "T. Planer",
      "objekt": "HLS:db-0007",
      "rolle": "TGA",
@@ -471,7 +471,7 @@
       "stand": "Obergeschosse"
      },
      "firma": "IGF",
-     "id": "3af1d795a1f7477589bbd26e1defd1b5",
+     "id": "8e3c220c04a4469c930907bcc72b01bf",
      "name": "S. Elektra",
      "objekt": "ELT:db-0101",
      "rolle": "ELT",
@@ -491,7 +491,7 @@
       "wert": "freigegeben"
      },
      "firma": "Architekt XY",
-     "id": "33a2954d35754816a9e814f33b9b03fb",
+     "id": "85b41196ae984db19eec0e07c5ef3a0d",
      "name": "A. Klein",
      "objekt": "HLS:db-0001",
      "rolle": "ARC",
@@ -511,7 +511,7 @@
       "wert": "freigegeben"
      },
      "firma": "Architekt XY",
-     "id": "45a028f9dde7418c8832a267142bf39d",
+     "id": "2aed69901d1c48f2bb7ac7a33add000a",
      "name": "A. Klein",
      "objekt": "HLS:db-0004",
      "rolle": "ARC",
@@ -531,7 +531,7 @@
       "wert": "zurueckgestellt"
      },
      "firma": "Architekt XY",
-     "id": "934be6ac0a1144d2a5ad7937fa6c988d",
+     "id": "8239f250bd7049a08619c7044f1ecdee",
      "name": "A. Klein",
      "objekt": "HLS:db-0006",
      "rolle": "ARC",
@@ -551,7 +551,7 @@
       "wert": "freigegeben"
      },
      "firma": "Architekt XY",
-     "id": "5e9eca62f22b42a6a1571bd93d5c05ab",
+     "id": "080e0bbd621143448d6466bea1758815",
      "name": "A. Klein",
      "objekt": "ELT:db-0101",
      "rolle": "ARC",
@@ -571,7 +571,7 @@
       "wert": "freigegeben"
      },
      "firma": "Tragwerk Z",
-     "id": "43572bab7b974315b0b0537f21328c26",
+     "id": "fe839db9052e416f8fea1a8085c3a6cd",
      "name": "M. Weber",
      "objekt": "HLS:db-0001",
      "rolle": "TWP",
@@ -585,7 +585,7 @@
       "text": "Liegt direkt neben dem Unterzug in Achse 3."
      },
      "firma": "Tragwerk Z",
-     "id": "3bfefbe9e02544299ae3f98ebf5ae725",
+     "id": "065ebd9adfc649b992401d2f8b683872",
      "name": "M. Weber",
      "objekt": "HLS:db-0002",
      "rolle": "TWP",
@@ -605,7 +605,7 @@
       "wert": "abgelehnt"
      },
      "firma": "Tragwerk Z",
-     "id": "3a28f233f7084e2b85a0617c46df58b2",
+     "id": "f9d08fa0f9d046fc970a5ce32a97844f",
      "name": "M. Weber",
      "objekt": "HLS:db-0002",
      "rolle": "TWP",
@@ -625,7 +625,7 @@
       "wert": "abgelehnt"
      },
      "firma": "Tragwerk Z",
-     "id": "691eda7ed4e14d86871f81cd8d08be13",
+     "id": "68c55b62de664a499c149282bdf8136b",
      "name": "M. Weber",
      "objekt": "HLS:db-0005",
      "rolle": "TWP",
@@ -645,7 +645,7 @@
       "wert": "freigegeben"
      },
      "firma": "Tragwerk Z",
-     "id": "da3f41ca21ab49d38b0291f39b5bae30",
+     "id": "1b656012884d4ec9a032980e9c038de1",
      "name": "M. Weber",
      "objekt": "ELT:db-0101",
      "rolle": "TWP",
@@ -659,7 +659,7 @@
       "text": "Prüfen wir, ggf. Kanal nach unten verziehen."
      },
      "firma": "IGF",
-     "id": "bc9fc671fec846e09ae483c64226c7bd",
+     "id": "fc4871da6a054e0185c0cc028a63ca76",
      "name": "T. Planer",
      "objekt": "HLS:db-0002",
      "rolle": "TGA",
@@ -673,7 +673,7 @@
       "text": "Um 60 cm nach Osten verschoben."
      },
      "firma": "IGF",
-     "id": "74ea04d378394edfb03352a783fbaae1",
+     "id": "e029438770c24957944c62749db781cc",
      "name": "T. Planer",
      "objekt": "HLS:db-0005",
      "rolle": "TGA",
@@ -723,7 +723,7 @@
       "runde": "R1"
      },
      "firma": "IGF",
-     "id": "53d5899d0ac24a13823a86f05811aeaf",
+     "id": "6e0ae904b32e4ff580f30dd0ba30957f",
      "name": "T. Planer",
      "objekt": "HLS:db-0005",
      "rolle": "TGA",
@@ -743,7 +743,7 @@
       "wert": "freigegeben"
      },
      "firma": "Brandschutz B",
-     "id": "2bbebf55d8f240f68b470b2e5d8c7379",
+     "id": "0b4bb54ff8f54b93aaec4f47ce2b7ac6",
      "name": "K. Feuer",
      "objekt": "HLS:db-0005",
      "rolle": "BS",
@@ -753,6 +753,16 @@
     }
    ],
    "erwartet": {
+    "einreichung": {
+     "ELT:db-0101": null,
+     "HLS:db-0001": null,
+     "HLS:db-0002": null,
+     "HLS:db-0003": null,
+     "HLS:db-0004": null,
+     "HLS:db-0005": null,
+     "HLS:db-0006": null,
+     "HLS:db-0007": null
+    },
     "gesamtstatus": {
      "ELT:db-0101": {
       "geaendert": false,
@@ -975,6 +985,7 @@
      "HLS:db-0006": "Obergeschosse",
      "HLS:db-0007": "Obergeschosse"
     },
+    "stand_uebersicht": {},
     "verlauf_laengen": {
      "ELT:db-0101": 3,
      "HLS:db-0001": 3,
@@ -1110,7 +1121,7 @@
       "wert": "abgelehnt"
      },
      "firma": "Architekt XY",
-     "id": "32ddb9c8e2f74a32b4d0920222f71d93",
+     "id": "4d528b72bd094d24adf25ec4e5b1719e",
      "name": "A",
      "objekt": "X:a",
      "rolle": "ARC",
@@ -1159,7 +1170,7 @@
       }
      },
      "firma": "IGF",
-     "id": "f3e7c6d5c17340e8b70ce7c43e9ac358",
+     "id": "0f81ad958b414f9aa22b48fcee20ab85",
      "name": "T",
      "objekt": "X:a",
      "rolle": "TGA",
@@ -1208,7 +1219,7 @@
       }
      },
      "firma": "IGF",
-     "id": "8b5b5384a533480ab03752f96a03bfa6",
+     "id": "3a3b7007898e4482aadfb4e8503f6471",
      "name": "T",
      "objekt": "X:g",
      "rolle": "TGA",
@@ -1220,7 +1231,7 @@
      "art": "geloescht",
      "daten": {},
      "firma": "Architekt XY",
-     "id": "7b94aa5d248242988bd6434d9c8db5f2",
+     "id": "0f98c587b8164428a06783751ab40422",
      "name": "A",
      "objekt": "X:a",
      "rolle": "ARC",
@@ -1269,7 +1280,7 @@
       }
      },
      "firma": "Architekt XY",
-     "id": "1b36f1cc44a045009810de5799302166",
+     "id": "fa35f4fef49c45b78191788602c1418f",
      "name": "A",
      "objekt": "X:g",
      "rolle": "ARC",
@@ -1284,7 +1295,7 @@
       "wert": "freigegeben"
      },
      "firma": "Tragwerk Z",
-     "id": "1a09e90920f04b5abf348231de57baf4",
+     "id": "4bc1c953a82e40b1a2f62b7caaf114b1",
      "name": "W",
      "objekt": "X:a",
      "rolle": "TWP",
@@ -1333,7 +1344,7 @@
       }
      },
      "firma": "IGF",
-     "id": "d3bfe79a53e848f4bc3492e21ef42203",
+     "id": "e8cacc75dcfb436c9948ae9d85bb5c05",
      "name": "T",
      "objekt": "X:a",
      "rolle": "TGA",
@@ -1348,7 +1359,7 @@
       "wert": "freigegeben"
      },
      "firma": "Tragwerk Z",
-     "id": "f827838994254965bf7f7858320f6561",
+     "id": "269e4ec14615469aa2d775c3a8fc6b53",
      "name": "W",
      "objekt": "X:a",
      "rolle": "TWP",
@@ -1363,7 +1374,7 @@
       "wert": "freigegeben"
      },
      "firma": "Architekt XY",
-     "id": "ee2b5a1f1f2a41c598f8a639d7efe437",
+     "id": "b392f3394acd44c5920e2f39b8c7eb07",
      "name": "A",
      "objekt": "X:g",
      "rolle": "ARC",
@@ -1378,7 +1389,7 @@
       "wert": "zurueckgestellt"
      },
      "firma": "Bauherr",
-     "id": "d0389d6da5c34f899d53fa0be14d9f62",
+     "id": "adeb1d5b742b49c9be52c8392d8b1481",
      "name": "B",
      "objekt": "X:g",
      "rolle": "BH",
@@ -1427,7 +1438,7 @@
       }
      },
      "firma": "IGF",
-     "id": "15927a654a9c4c5790af2804dd3d1204",
+     "id": "41cfccbb1c1c425ab658413c249b9c94",
      "name": "T",
      "objekt": "X:d",
      "rolle": "TGA",
@@ -1439,7 +1450,7 @@
      "art": "geloescht",
      "daten": {},
      "firma": "IGF",
-     "id": "c16664f3fd17473e9d344822096de08b",
+     "id": "7c49e2cacce740b799de9bdf52854740",
      "name": "T",
      "objekt": "X:d",
      "rolle": "TGA",
@@ -1488,7 +1499,7 @@
       }
      },
      "firma": "IGF",
-     "id": "729e3e00723440e7be1ada75cc4f7aa0",
+     "id": "e018af2678f348cd9d52ae12c20638b2",
      "name": "T",
      "objekt": "X:e",
      "rolle": "TGA",
@@ -1500,7 +1511,7 @@
      "art": "geloescht",
      "daten": {},
      "firma": "IGF",
-     "id": "33c3595e922f4b1d8d25d64f6e1b16d1",
+     "id": "35395bf65a2b4a2da1158e1f80c310fa",
      "name": "T",
      "objekt": "X:e",
      "rolle": "TGA",
@@ -1549,7 +1560,7 @@
       }
      },
      "firma": "IGF",
-     "id": "ed3fd0c3f2c64882ba7bffd03f9b67e0",
+     "id": "76cae3d2e8c945eca5685a6e1822bfb6",
      "name": "T",
      "objekt": "X:e",
      "rolle": "TGA",
@@ -1564,7 +1575,7 @@
       "wert": "abgelehnt"
      },
      "firma": "Architekt XY",
-     "id": "e3fb8f8518cb4d22a14b87fc53379b7e",
+     "id": "27e09036fb224ddbbe0e32c69d132283",
      "name": "A",
      "objekt": "X:e",
      "rolle": "ARC",
@@ -1580,7 +1591,7 @@
       "modell": "ARC"
      },
      "firma": "Architekt XY",
-     "id": "829879ca875e4a8ca605118a91451cbc",
+     "id": "89fc1a15a951425bb7ddf595eff16371",
      "name": "A",
      "objekt": null,
      "rolle": "ARC",
@@ -1596,16 +1607,477 @@
       "modell": "ARC"
      },
      "firma": "Tragwerk Z",
-     "id": "3e109cc5d4704151a39f85052c796832",
+     "id": "a3d5045c8e014d7a863747ddf798bf2d",
      "name": "W",
      "objekt": null,
      "rolle": "TWP",
      "schema": 1,
      "seq": 3,
      "zeit": "2026-11-12T08:20:00.000Z"
+    },
+    {
+     "art": "stand_eingereicht",
+     "daten": {
+      "mitglieder": [
+       "X:s1",
+       "X:s2",
+       "X:s3"
+      ],
+      "objekte": {
+       "X:s1": {
+        "ebene": "E",
+        "familie": "IGF_Durchbruch_Rechteck",
+        "flaeche_m2": 0.09,
+        "geometrie": {
+         "form": "rechteck",
+         "masse": {
+          "breite": 300,
+          "hoehe": 300
+         },
+         "max": [
+          300,
+          0,
+          300
+         ],
+         "min": [
+          0,
+          -300,
+          0
+         ]
+        },
+        "geometrie_hash": "19d65305da023c29",
+        "gewerke": [
+         "L"
+        ],
+        "groesse": "300×300",
+        "kategorie": "Allgemeines Modell",
+        "modell": "HLS",
+        "nummer": "S1",
+        "typ": "Wand",
+        "uk_mm": 0,
+        "wirt": {
+         "kategorie": "Wände",
+         "tragend": true
+        }
+       },
+       "X:s2": {
+        "ebene": "E",
+        "familie": "IGF_Durchbruch_Rechteck",
+        "flaeche_m2": 0.09,
+        "geometrie": {
+         "form": "rechteck",
+         "masse": {
+          "breite": 300,
+          "hoehe": 300
+         },
+         "max": [
+          1300,
+          0,
+          300
+         ],
+         "min": [
+          1000,
+          -300,
+          0
+         ]
+        },
+        "geometrie_hash": "0d995e83e82f1fa9",
+        "gewerke": [
+         "L"
+        ],
+        "groesse": "300×300",
+        "kategorie": "Allgemeines Modell",
+        "modell": "HLS",
+        "nummer": "S2",
+        "typ": "Wand",
+        "uk_mm": 0,
+        "wirt": {
+         "kategorie": "Wände",
+         "tragend": true
+        }
+       },
+       "X:s3": {
+        "ebene": "E",
+        "familie": "IGF_Durchbruch_Rechteck",
+        "flaeche_m2": 0.09,
+        "geometrie": {
+         "form": "rechteck",
+         "masse": {
+          "breite": 300,
+          "hoehe": 300
+         },
+         "max": [
+          2300,
+          0,
+          300
+         ],
+         "min": [
+          2000,
+          -300,
+          0
+         ]
+        },
+        "geometrie_hash": "a79b34384a0e4ef4",
+        "gewerke": [
+         "L"
+        ],
+        "groesse": "300×300",
+        "kategorie": "Allgemeines Modell",
+        "modell": "HLS",
+        "nummer": "S3",
+        "typ": "Wand",
+        "uk_mm": 0,
+        "wirt": {
+         "kategorie": "Wände",
+         "tragend": true
+        }
+       }
+      },
+      "runde": "R9",
+      "stand": "S1"
+     },
+     "firma": "IGF",
+     "id": "56a848e9ccf741b6bc56e2d776c7b3ff",
+     "name": "T",
+     "objekt": null,
+     "rolle": "TGA",
+     "schema": 1,
+     "seq": 9,
+     "zeit": "2026-11-12T09:00:00.000Z"
+    },
+    {
+     "art": "status",
+     "daten": {
+      "geometrie_hash": "19d65305da023c29",
+      "wert": "freigegeben"
+     },
+     "firma": "Architekt XY",
+     "id": "dbb504d858fa42d89c8f35edf6bd6777",
+     "name": "A",
+     "objekt": "X:s1",
+     "rolle": "ARC",
+     "schema": 1,
+     "seq": 7,
+     "zeit": "2026-11-12T09:05:00.000Z"
+    },
+    {
+     "art": "status",
+     "daten": {
+      "geometrie_hash": "0d995e83e82f1fa9",
+      "wert": "abgelehnt"
+     },
+     "firma": "Architekt XY",
+     "id": "49d3c37b3e094ff8a41fe8e66473c4cb",
+     "name": "A",
+     "objekt": "X:s2",
+     "rolle": "ARC",
+     "schema": 1,
+     "seq": 8,
+     "zeit": "2026-11-12T09:06:00.000Z"
+    },
+    {
+     "art": "stand_eingereicht",
+     "daten": {
+      "mitglieder": [
+       "X:s1",
+       "X:s2",
+       "X:s4",
+       "X:g"
+      ],
+      "objekte": {
+       "X:s2": {
+        "ebene": "E",
+        "familie": "IGF_Durchbruch_Rechteck",
+        "flaeche_m2": 0.09,
+        "geometrie": {
+         "form": "rechteck",
+         "masse": {
+          "breite": 300,
+          "hoehe": 300
+         },
+         "max": [
+          1800,
+          0,
+          300
+         ],
+         "min": [
+          1500,
+          -300,
+          0
+         ]
+        },
+        "geometrie_hash": "3b012465c4a780c3",
+        "gewerke": [
+         "L"
+        ],
+        "groesse": "300×300",
+        "kategorie": "Allgemeines Modell",
+        "modell": "HLS",
+        "nummer": "S2",
+        "typ": "Wand",
+        "uk_mm": 0,
+        "wirt": {
+         "kategorie": "Wände",
+         "tragend": true
+        }
+       },
+       "X:s4": {
+        "ebene": "E",
+        "familie": "IGF_Durchbruch_Rechteck",
+        "flaeche_m2": 0.09,
+        "geometrie": {
+         "form": "rechteck",
+         "masse": {
+          "breite": 300,
+          "hoehe": 300
+         },
+         "max": [
+          3300,
+          0,
+          300
+         ],
+         "min": [
+          3000,
+          -300,
+          0
+         ]
+        },
+        "geometrie_hash": "c374f81d1436256e",
+        "gewerke": [
+         "L"
+        ],
+        "groesse": "300×300",
+        "kategorie": "Allgemeines Modell",
+        "modell": "HLS",
+        "nummer": "S4",
+        "typ": "Wand",
+        "uk_mm": 0,
+        "wirt": {
+         "kategorie": "Wände",
+         "tragend": true
+        }
+       }
+      },
+      "runde": null,
+      "stand": "S1"
+     },
+     "firma": "IGF",
+     "id": "1096bcc0070444789e6d5716c2e10bc0",
+     "name": "T",
+     "objekt": null,
+     "rolle": "TGA",
+     "schema": 1,
+     "seq": 10,
+     "zeit": "2026-11-12T09:10:00.000Z"
+    },
+    {
+     "art": "stand_eingereicht",
+     "daten": {
+      "mitglieder": [
+       "X:s1"
+      ],
+      "objekte": {
+       "X:s1": {
+        "ebene": "E",
+        "familie": "IGF_Durchbruch_Rechteck",
+        "flaeche_m2": 0.09,
+        "geometrie": {
+         "form": "rechteck",
+         "masse": {
+          "breite": 300,
+          "hoehe": 300
+         },
+         "max": [
+          4300,
+          0,
+          300
+         ],
+         "min": [
+          4000,
+          -300,
+          0
+         ]
+        },
+        "geometrie_hash": "9220df1d8c61c071",
+        "gewerke": [
+         "L"
+        ],
+        "groesse": "300×300",
+        "kategorie": "Allgemeines Modell",
+        "modell": "HLS",
+        "nummer": "S5",
+        "typ": "Wand",
+        "uk_mm": 0,
+        "wirt": {
+         "kategorie": "Wände",
+         "tragend": true
+        }
+       }
+      },
+      "runde": null,
+      "stand": "S1"
+     },
+     "firma": "Architekt XY",
+     "id": "4482cc0fc2bf4b0db0354d0f4aab2556",
+     "name": "A",
+     "objekt": null,
+     "rolle": "ARC",
+     "schema": 1,
+     "seq": 9,
+     "zeit": "2026-11-12T09:11:00.000Z"
+    },
+    {
+     "art": "status",
+     "daten": {
+      "geometrie_hash": "9220df1d8c61c071",
+      "wert": "abgelehnt"
+     },
+     "firma": "Architekt XY",
+     "id": "aa8e234cc5b54ad39e5bb027c551faf9",
+     "name": "A",
+     "objekt": "X:s5",
+     "rolle": "ARC",
+     "schema": 1,
+     "seq": 10,
+     "zeit": "2026-11-12T09:20:00.000Z"
+    },
+    {
+     "art": "stand_eingereicht",
+     "daten": {
+      "mitglieder": [
+       "X:s5"
+      ],
+      "objekte": {
+       "X:s5": {
+        "ebene": "E",
+        "familie": "IGF_Durchbruch_Rechteck",
+        "flaeche_m2": 0.09,
+        "geometrie": {
+         "form": "rechteck",
+         "masse": {
+          "breite": 300,
+          "hoehe": 300
+         },
+         "max": [
+          4300,
+          0,
+          300
+         ],
+         "min": [
+          4000,
+          -300,
+          0
+         ]
+        },
+        "geometrie_hash": "9220df1d8c61c071",
+        "gewerke": [
+         "L"
+        ],
+        "groesse": "300×300",
+        "kategorie": "Allgemeines Modell",
+        "modell": "HLS",
+        "nummer": "S5",
+        "typ": "Wand",
+        "uk_mm": 0,
+        "wirt": {
+         "kategorie": "Wände",
+         "tragend": true
+        }
+       }
+      },
+      "runde": null,
+      "stand": "S2"
+     },
+     "firma": "IGF",
+     "id": "a6bfb8bf4f68420d9cd4ed613593ac0b",
+     "name": "T",
+     "objekt": null,
+     "rolle": "TGA",
+     "schema": 1,
+     "seq": 11,
+     "zeit": "2026-11-12T09:20:00.000Z"
+    },
+    {
+     "art": "stand_zurueckgezogen",
+     "daten": {
+      "stand": "S2"
+     },
+     "firma": "IGF",
+     "id": "901f4f2f6b6543e19c6bad812e53fd04",
+     "name": "T",
+     "objekt": null,
+     "rolle": "TGA",
+     "schema": 1,
+     "seq": 12,
+     "zeit": "2026-11-12T09:21:00.000Z"
+    },
+    {
+     "art": "stand_eingereicht",
+     "daten": {
+      "mitglieder": [
+       "X:s5"
+      ],
+      "objekte": {
+       "X:s5": {
+        "ebene": "E",
+        "familie": "IGF_Durchbruch_Rechteck",
+        "flaeche_m2": 0.09,
+        "geometrie": {
+         "form": "rechteck",
+         "masse": {
+          "breite": 300,
+          "hoehe": 300
+         },
+         "max": [
+          4300,
+          0,
+          300
+         ],
+         "min": [
+          4000,
+          -300,
+          0
+         ]
+        },
+        "geometrie_hash": "9220df1d8c61c071",
+        "gewerke": [
+         "L"
+        ],
+        "groesse": "300×300",
+        "kategorie": "Allgemeines Modell",
+        "modell": "HLS",
+        "nummer": "S5",
+        "typ": "Wand",
+        "uk_mm": 0,
+        "wirt": {
+         "kategorie": "Wände",
+         "tragend": true
+        }
+       }
+      },
+      "runde": null,
+      "stand": "S3"
+     },
+     "firma": "IGF",
+     "id": "903e316aee57444681abeddf4f4ccad0",
+     "name": "T",
+     "objekt": null,
+     "rolle": "TGA",
+     "schema": 1,
+     "seq": 13,
+     "zeit": "2026-11-12T09:22:00.000Z"
     }
    ],
    "erwartet": {
+    "einreichung": {
+     "X:a": null,
+     "X:e": null,
+     "X:g": "unveraendert",
+     "X:s1": "unveraendert",
+     "X:s2": "geaendert",
+     "X:s4": "neu",
+     "X:s5": "neu"
+    },
     "gesamtstatus": {
      "X:a": {
       "geaendert": true,
@@ -1681,6 +2153,114 @@
       },
       "status": "in_pruefung",
       "wirkung": "offen"
+     },
+     "X:s1": {
+      "geaendert": false,
+      "pflicht_erfuellt": 1,
+      "pflicht_gesamt": 2,
+      "rollen": {
+       "ARC": {
+        "status": "freigegeben",
+        "stufe": "pflicht",
+        "veraltet": false,
+        "wirkung": "freigabe"
+       },
+       "TGA": {
+        "status": null,
+        "stufe": "info",
+        "veraltet": false,
+        "wirkung": null
+       },
+       "TWP": {
+        "status": null,
+        "stufe": "pflicht",
+        "veraltet": false,
+        "wirkung": null
+       }
+      },
+      "status": "in_pruefung",
+      "wirkung": "offen"
+     },
+     "X:s2": {
+      "geaendert": true,
+      "pflicht_erfuellt": 0,
+      "pflicht_gesamt": 2,
+      "rollen": {
+       "ARC": {
+        "status": null,
+        "stufe": "pflicht",
+        "veraltet": true,
+        "wirkung": null
+       },
+       "TGA": {
+        "status": null,
+        "stufe": "info",
+        "veraltet": false,
+        "wirkung": null
+       },
+       "TWP": {
+        "status": null,
+        "stufe": "pflicht",
+        "veraltet": false,
+        "wirkung": null
+       }
+      },
+      "status": "in_pruefung",
+      "wirkung": "offen"
+     },
+     "X:s4": {
+      "geaendert": false,
+      "pflicht_erfuellt": 0,
+      "pflicht_gesamt": 2,
+      "rollen": {
+       "ARC": {
+        "status": null,
+        "stufe": "pflicht",
+        "veraltet": false,
+        "wirkung": null
+       },
+       "TGA": {
+        "status": null,
+        "stufe": "info",
+        "veraltet": false,
+        "wirkung": null
+       },
+       "TWP": {
+        "status": null,
+        "stufe": "pflicht",
+        "veraltet": false,
+        "wirkung": null
+       }
+      },
+      "status": "in_pruefung",
+      "wirkung": "offen"
+     },
+     "X:s5": {
+      "geaendert": false,
+      "pflicht_erfuellt": 0,
+      "pflicht_gesamt": 2,
+      "rollen": {
+       "ARC": {
+        "status": null,
+        "stufe": "pflicht",
+        "veraltet": false,
+        "wirkung": null
+       },
+       "TGA": {
+        "status": null,
+        "stufe": "info",
+        "veraltet": false,
+        "wirkung": null
+       },
+       "TWP": {
+        "status": null,
+        "stufe": "pflicht",
+        "veraltet": false,
+        "wirkung": null
+       }
+      },
+      "status": "in_pruefung",
+      "wirkung": "offen"
      }
     },
     "ignoriert": 3,
@@ -1690,18 +2270,53 @@
     "objekte": [
      "X:a",
      "X:e",
-     "X:g"
+     "X:g",
+     "X:s1",
+     "X:s2",
+     "X:s4",
+     "X:s5"
     ],
     "runden": [],
     "staende": {
      "X:a": null,
      "X:e": null,
-     "X:g": null
+     "X:g": "S1",
+     "X:s1": "S1",
+     "X:s2": "S1",
+     "X:s4": "S1",
+     "X:s5": "S3"
+    },
+    "stand_uebersicht": {
+     "Architekt XY|S1": {
+      "anzahl": 0,
+      "firma": "Architekt XY",
+      "runde": null,
+      "stand": "S1",
+      "zeit": "2026-11-12T09:11:00.000Z"
+     },
+     "IGF|S1": {
+      "anzahl": 4,
+      "firma": "IGF",
+      "runde": null,
+      "stand": "S1",
+      "zeit": "2026-11-12T09:10:00.000Z"
+     },
+     "IGF|S3": {
+      "anzahl": 1,
+      "firma": "IGF",
+      "runde": null,
+      "stand": "S3",
+      "zeit": "2026-11-12T09:22:00.000Z"
+     }
     },
     "verlauf_laengen": {
      "X:a": 5,
      "X:e": 4,
-     "X:g": 3
+     "X:g": 3,
+     "X:s1": 2,
+     "X:s2": 3,
+     "X:s4": 1,
+     "X:s5": 3
     },
     "wartet_auf_firma": {
      "Architekt XY": [],
@@ -1713,7 +2328,10 @@
     },
     "wartet_auf_rolle": {
      "ARC": [
-      "X:a"
+      "X:a",
+      "X:s2",
+      "X:s4",
+      "X:s5"
      ],
      "BH": [],
      "BS": [],
@@ -1721,7 +2339,11 @@
      "LAB": [],
      "TGA": [],
      "TWP": [
-      "X:e"
+      "X:e",
+      "X:s1",
+      "X:s2",
+      "X:s4",
+      "X:s5"
      ]
     }
    },

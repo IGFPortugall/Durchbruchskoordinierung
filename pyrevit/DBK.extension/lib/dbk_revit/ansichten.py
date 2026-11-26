@@ -70,10 +70,31 @@ def _element(doc, objekt):
 
 
 def _auswaehlen(uidoc, objekt):
-    e = _element(uidoc.Document, objekt)
+    """Durchbruch markieren – im eigenen Modell oder in der Verknüpfung, aus der er stammt."""
+    doc = uidoc.Document
+    e = _element(doc, objekt)
     if e is not None:
         uidoc.Selection.SetElementIds(_liste([e.Id]))
-    return e
+        return e
+    uid, quelle = objekt.get("revit_unique_id"), objekt.get("revit_modell")
+    if not uid or not quelle:
+        return None
+    for li in DB.FilteredElementCollector(doc).OfClass(DB.RevitLinkInstance):
+        ld = li.GetLinkDocument()
+        if ld is None or ld.Title != quelle:
+            continue
+        le = ld.GetElement(uid)
+        if le is None:
+            continue
+        try:
+            from System.Collections.Generic import List
+            refs = List[DB.Reference]()
+            refs.Add(DB.Reference(le).CreateLinkReference(li))
+            uidoc.Selection.SetReferences(refs)
+        except Exception:
+            pass
+        return le
+    return None
 
 
 def zeige_3d(uiapp, objekt, einst):

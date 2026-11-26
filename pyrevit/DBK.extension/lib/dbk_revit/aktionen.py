@@ -87,7 +87,7 @@ def einreichen_planen(doc, einst, pruefset, fortschritt=None):
     for i, e in enumerate(elemente):
         if fortschritt and i % 25 == 0:
             fortschritt(i, len(elemente))
-        d = sammeln.objektdaten(e, kuerzel, firmenkuerzel, ebenen, wirte)
+        d = sammeln.objektdaten(e, kuerzel, firmenkuerzel, ebenen, wirte, pruefset)
         if d is None:
             continue
         oid = sammeln.objekt_id(kuerzel, e)
@@ -140,6 +140,37 @@ def einreichen_ausfuehren(einst, plan, rundenname=None, frist=None, auswahl=None
             "geloescht": len(plan.entfallen) if entfallen else 0}
 
 
+def stand_einreichen(einst, plan, stand, mitglieder, rundenname=None, frist=None):
+    """Ein Ereignis für den ganzen Stand: alle Mitglieder, Objektdaten nur für Neue/Geänderte.
+
+    Was bisher im Stand war und in ``mitglieder`` fehlt, fällt in der Koordination heraus."""
+    from .einstellungen import absender
+    mitglieder = [o for o in mitglieder if plan.zustand.get(o) != FREMD]
+    objekte = dict((o, plan.objekte[o]) for o in mitglieder if plan.zustand[o] in (NEU, GEOMETRIE, DATEN))
+    zur_pruefung = [o for o in mitglieder if plan.zustand[o] in (NEU, GEOMETRIE)]
+    ablage = Ablage(einst["projektordner"], absender(einst))
+    ablage.lade_neue()
+    z = berechne(ablage.alle(), projekt_laden(einst["projektordner"]))
+    vorher = set(oid for oid, o in z.objekte.items() if o.besitzer == einst["firma"] and o.stand == stand)
+    runde = None
+    if rundenname and zur_pruefung:
+        runde = "R-" + dbk_zeit.kompakt(dbk_zeit.jetzt_iso())[:15]
+        ablage.schreibe("pruefrunde_gestartet", None, {"runde": runde, "name": rundenname, "frist": frist})
+    ablage.schreibe("stand_eingereicht", None, {"stand": stand, "runde": runde, "mitglieder": sorted(mitglieder),
+                                                 "objekte": objekte})
+    return {"runde": runde, "neu": len([o for o in mitglieder if plan.zustand[o] == NEU]),
+            "geaendert": len([o for o in mitglieder if plan.zustand[o] == GEOMETRIE]),
+            "unveraendert": len([o for o in mitglieder if plan.zustand[o] in (UNVERAENDERT, DATEN)]),
+            "entfallen": len(vorher - set(mitglieder))}
+
+
+def stand_zurueckziehen(einst, stand):
+    from .einstellungen import absender
+    ablage = Ablage(einst["projektordner"], absender(einst))
+    ablage.lade_neue()
+    ablage.schreibe("stand_zurueckgezogen", None, {"stand": stand})
+
+
 # ------------------------------------------------------------------ Modell veröffentlichen
 
 B = DB.BuiltInCategory
@@ -164,6 +195,7 @@ def _sha1(pfad):
 
 
 FBX, IFC = "fbx", "ifc"
+FBX_DETAIL = 4   # Revit-Detailstufe 0–15; höher = rundere Rohre, aber viel größere Dateien (TGA-Modell: ~0,5 GB bei 4)
 FORMAT_TEXT = {
     FBX: "FBX – schnell (Revit-eigener 3D-Export). Geometrie plus Kategorie, Familie, Typ, Ebene, System und "
          "Größe aus Revit. Empfohlen für Trassen, Kanäle und Rohre.",
@@ -230,7 +262,7 @@ def fbx_aus_ansicht(doc, ansicht, ordner, dateiname, pruefset=None, verstecken=N
     """Revit-eigener FBX-Export der 3D-Ansicht (ohne Durchbrüche). Deutlich schneller als IFC."""
     opt = DB.FBXExportOptions()
     opt.UseLevelsOfDetail = True
-    opt.LevelsOfDetailValue = 4
+    opt.LevelsOfDetailValue = FBX_DETAIL
     opt.WithoutBoundaryEdges = True
     opt.StopOnError = False
     ansichten = DB.ViewSet()
@@ -364,8 +396,99 @@ def _kopieren(quelle, ziel, fortschritt=None):
         raise
 
 
+PNG = "png"
+PLAN_PIXEL = 6000
+
+
+def plan_ansichten(doc):
+    """Grundrisse und Schnitte/Ansichten, die sich als Plan-Ebene exportieren lassen: {Name: View}."""
+    arten = (DB.ViewType.FloorPlan, DB.ViewType.CeilingPlan, DB.ViewType.EngineeringPlan, DB.ViewType.AreaPlan,
+             DB.ViewType.Section, DB.ViewType.Elevation, DB.ViewType.Detail)
+    return dict((v.Name, v) for v in DB.FilteredElementCollector(doc).OfClass(DB.View)
+                if not v.IsTemplate and v.ViewType in arten and v.CanBePrinted)
+
+
+def plan_aus_ansicht(doc, ansicht, ordner):
+    """Grundriss/Schnitt als PNG mit Lage: (pfad, plan).
+
+    plan = {"art": "grundriss"|"schnitt", "ecken_mm": [[x, y, z] × 4 – unten links, unten rechts,
+    oben rechts, oben links], "ebene", "massstab"} in internen Revit-Koordinaten (wie die Durchbrüche).
+
+    Für einen festen Bildausschnitt wird in einer zurückgerollten Transaktion der Zuschnitt
+    aktiviert (Rahmen unsichtbar) und der Beschriftungszuschnitt eng um ihn gelegt. Ob Revit den
+    Beschriftungsabstand in Papier- oder Modellmaß meint, entscheidet das Seitenverhältnis des Bildes."""
+    import glob
+    t = DB.Transaction(doc, "DBK: Plan-Export")
+    t.Start()
+    try:
+        ansicht.CropBoxActive = True
+        ansicht.CropBoxVisible = False
+        abstand = 0.0
+        try:
+            ansicht.AnnotationCropActive = True
+            m = ansicht.GetCropRegionShapeManager()
+            for seite in ("Left", "Right", "Top", "Bottom"):
+                try:
+                    setattr(m, seite + "AnnotationCropOffset", 0.0)
+                except Exception:
+                    pass
+            werte = [getattr(m, s + "AnnotationCropOffset") for s in ("Left", "Right", "Top", "Bottom")]
+            abstand = sum(werte) / 4.0
+        except Exception:
+            pass
+        doc.Regenerate()
+        box = ansicht.CropBox
+        opt = DB.ImageExportOptions()
+        opt.ExportRange = DB.ExportRange.SetOfViews
+        from System.Collections.Generic import List
+        ids = List[DB.ElementId]()
+        ids.Add(ansicht.Id)
+        opt.SetViewsAndSheets(ids)
+        opt.ZoomType = DB.ZoomFitType.FitToPage
+        opt.FitDirection = DB.FitDirectionType.Horizontal
+        opt.PixelSize = PLAN_PIXEL
+        opt.HLRandWFViewsFileType = DB.ImageFileType.PNG
+        opt.ShadowViewsFileType = DB.ImageFileType.PNG
+        opt.ImageResolution = DB.ImageResolution.DPI_150
+        opt.FilePath = os.path.join(ordner, "plan")
+        doc.ExportImage(opt)
+        massstab = ansicht.Scale
+    finally:
+        t.RollBack()
+    dateien = glob.glob(os.path.join(ordner, "plan*.png"))
+    if not dateien:
+        raise RuntimeError("Revit hat kein Bild exportiert.")
+    pfad = dateien[0]
+    import clr
+    clr.AddReference("System.Drawing")
+    from System.Drawing import Image
+    bild = Image.FromFile(pfad)
+    breite_px, hoehe_px = bild.Width, bild.Height
+    bild.Dispose()
+
+    bx, by = box.Max.X - box.Min.X, box.Max.Y - box.Min.Y
+    verhaeltnis = float(breite_px) / hoehe_px
+    # Beschriftungsabstand: als Modellmaß oder als Papiermaß × Maßstab – was passt besser zum Bild?
+    kandidaten = [abstand, abstand * massstab, 0.0]
+    d = min(kandidaten, key=lambda k: abs((bx + 2 * k) / (by + 2 * k) - verhaeltnis))
+    x0, x1, y0, y1 = box.Min.X - d, box.Max.X + d, box.Min.Y - d, box.Max.Y + d
+    grundriss = isinstance(ansicht, DB.ViewPlan)
+    if grundriss:
+        lvl = ansicht.GenLevel
+        z = (lvl.ProjectElevation if lvl is not None else box.Min.Z)   # wie sammeln.alle_ebenen
+        ecken = [box.Transform.OfPoint(DB.XYZ(x, y, 0)) for x, y in ((x0, y0), (x1, y0), (x1, y1), (x0, y1))]
+        ecken = [DB.XYZ(p.X, p.Y, z) for p in ecken]
+    else:
+        ecken = [box.Transform.OfPoint(DB.XYZ(x, y, 0)) for x, y in ((x0, y0), (x1, y0), (x1, y1), (x0, y1))]
+    plan = {"art": "grundriss" if grundriss else "schnitt", "massstab": massstab,
+            "ecken_mm": [[int(round(c * FUSS)) for c in (p.X, p.Y, p.Z)] for p in ecken],
+            "ebene": ansicht.GenLevel.Name if grundriss and ansicht.GenLevel is not None else None,
+            "pixel": [breite_px, hoehe_px]}
+    return pfad, plan
+
+
 def datei_veroeffentlichen(doc, einst, pfad, kuerzel, quelle_titel, format_, geschosse=None, zusatz=None,
-                           version=None, fortschritt=None, name=None):
+                           version=None, fortschritt=None, name=None, plan=None):
     """Legt eine Modelldatei unter modelle/<Kürzel>/<Hash>.<format> ab und schreibt das Ereignis.
 
     zusatz: optionale Bauteil-Infos (dict) – werden als <Hash>.json daneben gelegt (FBX).
@@ -387,6 +510,8 @@ def datei_veroeffentlichen(doc, einst, pfad, kuerzel, quelle_titel, format_, ges
         daten["revit_version"] = version
     if name:
         daten["name"] = name
+    if plan is not None:
+        daten["plan"] = plan
     if zusatz is not None:
         info = os.path.join(ordner, "%s.json" % h)
         text = json.dumps(zusatz, ensure_ascii=False, separators=(",", ":"))

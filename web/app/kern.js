@@ -15,7 +15,8 @@ export const IN_PRUEFUNG = "in_pruefung";
 export const FREIGEGEBEN = "freigegeben";
 
 export const ARTEN = ["pruefrunde_gestartet", "eingereicht", "geaendert", "geloescht",
-  "status", "nachricht", "modell_veroeffentlicht", "modell_ausrichtung"];
+  "status", "nachricht", "modell_veroeffentlicht", "modell_ausrichtung", "modell_entfernt",
+  "stand_eingereicht", "stand_zurueckgezogen"];
 const PFLICHTFELDER = ["schema", "id", "zeit", "seq", "firma", "name", "rolle", "art", "objekt", "daten"];
 
 export const STANDARD_STATUS = [
@@ -163,6 +164,7 @@ export class ObjektZustand {
     this.geloescht = false;
     this.runden = [];
     this.stand = null;
+    this.einreichung = null;
     this.letzteEinreichung = null;
     this.entscheidungen = {};
     this.verlauf = [];
@@ -184,6 +186,7 @@ export class Zustand {
     this.objekte = new Map();
     this.runden = {};
     this.modelle = {};
+    this.staende = {};
     this.ignoriert = [];
   }
 
@@ -256,6 +259,44 @@ export class Zustand {
   }
 }
 
+/** Momentaufnahme eines Stands – gleiche Regeln wie zustand._stand_eingereicht (Python). */
+function standEingereicht(z, alle, e) {
+  const firma = e.firma, d = e.daten, stand = d.stand || null;
+  const objekte = d.objekte || {}, mitglieder = new Set(d.mitglieder || []);
+  const sk = schluessel(e), runde = d.runde ?? null;
+  let anzahl = 0;
+  for (const oid of [...mitglieder].sort()) {
+    let o = alle.get(oid);
+    const neu = objekte[oid];
+    if (neu !== undefined && neu !== null) {
+      if (!o) { o = new ObjektZustand(oid); alle.set(oid, o); }
+      if (o.besitzer === null) { o.besitzer = firma; o.erstellerRolle = e.rolle; }
+      if (o.besitzer !== firma) continue;
+      const warAktiv = o.daten !== null && !o.geloescht;
+      if (warAktiv && o.geometrieHash === neu.geometrie_hash) {
+        o.einreichung = "unveraendert";
+      } else {
+        o.einreichung = warAktiv ? "geaendert" : "neu";
+        o.letzteEinreichung = sk;
+        if (runde && !o.runden.includes(runde)) o.runden.push(runde);
+        o.verlauf.push({ ...e, art: "eingereicht", objekt: oid,
+          daten: { objekt: neu, runde, stand: d.stand, einreichung: o.einreichung } });
+      }
+      o.daten = { ...neu };
+      o.geloescht = false;
+    } else {
+      if (!o || o.besitzer !== firma || o.daten === null || o.geloescht) continue;
+      o.einreichung = "unveraendert";
+    }
+    o.stand = stand;
+    anzahl++;
+  }
+  for (const [oid, o] of alle) {
+    if (o.besitzer === firma && o.stand === stand && !o.geloescht && !mitglieder.has(oid)) o.geloescht = true;
+  }
+  z.staende[`${firma}|${d.stand}`] = { firma, stand: d.stand, zeit: e.zeit, runde, anzahl };
+}
+
 export function berechne(ereignisse, projekt) {
   const z = new Zustand(projekt);
   const alle = new Map();
@@ -279,6 +320,24 @@ export function berechne(ereignisse, projekt) {
       const m = z.modelle[e.daten.modell];
       if (!m || m.besitzer !== e.firma) { z.ignoriert.push(e); continue; }
       m.ausrichtung = { ...e.daten };
+      continue;
+    }
+    if (art === "modell_entfernt") {
+      const m = z.modelle[e.daten.modell];
+      if (!m || m.besitzer !== e.firma) { z.ignoriert.push(e); continue; }
+      delete z.modelle[e.daten.modell];   // gelöscht ist gelöscht; neu veröffentlichen beginnt von vorn
+      continue;
+    }
+    if (art === "stand_eingereicht") { standEingereicht(z, alle, e); continue; }
+    if (art === "stand_zurueckgezogen") {
+      const stand = e.daten.stand || null;
+      for (const o of alle.values()) {
+        if (o.besitzer === e.firma && !o.geloescht && o.stand === stand) {
+          o.geloescht = true;
+          o.entscheidungen = {};      // zurückgezogen: erneutes Einreichen beginnt von vorn
+        }
+      }
+      delete z.staende[`${e.firma}|${stand || ""}`];
       continue;
     }
     let o = alle.get(e.objekt);

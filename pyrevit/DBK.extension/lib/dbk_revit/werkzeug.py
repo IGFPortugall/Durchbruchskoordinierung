@@ -1,7 +1,11 @@
 # -*- coding: utf-8 -*-
 """Durchbruchskoordination – ein Werkzeug mit Reitern (Projekt · Durchbrüche · Einreichen).
 
-Modelle für den Viewer exportiert der eigene Knopf „Modelle zum Viewer“ (modelle.py).
+Ein Stand ist Name + 3D-Ansicht: was in der Ansicht von den Koordinations-Familien sichtbar ist,
+gehört dazu. Einreichen schickt den ganzen Stand als Momentaufnahme (neu / geändert /
+unverändert); was fehlt, fällt heraus.
+
+Reiter: Projekt · Ansichten (3D-Modelle und 2D-Pläne für den Viewer, modelle.py) · Durchbrüche · Einreichen.
 
 Nicht-modal: das Fenster bleibt neben Revit offen. Alles, was die Revit-API braucht,
 läuft über ein ExternalEvent (Warteschlange). Der Viewer im Browser ist der Prüf-Manager.
@@ -16,6 +20,7 @@ import tempfile
 import time
 import traceback
 
+import System
 from System.Windows import Thickness, Visibility
 from System.Windows.Controls import CheckBox, TextBlock, TreeViewItem
 from System.Windows.Input import Cursors
@@ -24,13 +29,15 @@ from Autodesk.Revit import DB, UI
 from pyrevit import forms
 
 from dbk_core import Ablage
-from . import aktionen, ansichten, einstellungen, pakete, sammeln, viewer_start
+from . import aktionen, ansichten, einstellungen, modelle, pakete, sammeln, staende, viewer_start
 from .fortschritt import Abgebrochen, Fortschritt
 from .sammeln import eid
 
 XAML = os.path.join(os.path.dirname(__file__), "ui", "werkzeug.xaml")
-ALLE = "(ohne Vorlage – alle)"
-FILTER = ["Alle", "Neu / geändert", "Schon geschickt", "Abgelehnt", "Zurückgehalten"]
+FILTER = ["Alle", "Neu / geändert", "Unverändert", "Entfallen", "Andere Firma"]
+FILTER_ARTEN = [None, ("neu", "geaendert", "daten"), ("unveraendert",), ("entfaellt",), ("fremd",)]
+ART_TEXT = {"neu": "neu", "geaendert": "geändert", "daten": "Daten geändert", "unveraendert": "unverändert",
+            "entfaellt": "entfällt", "fremd": "gehört anderer Firma"}
 KOORD_TEXT = {"offen": "in Prüfung", "blockiert": "abgelehnt", "freigabe": "freigegeben"}
 
 
@@ -52,6 +59,12 @@ class _Warteschlange(UI.IExternalEventHandler):
         while self.auftraege:
             titel, f = self.auftraege.pop(0)
             try:
+                aktiv = uiapp.ActiveUIDocument.Document if uiapp.ActiveUIDocument else None
+                if self.fenster.dok_schluessel and einstellungen.dokument_schluessel(aktiv) != self.fenster.dok_schluessel:
+                    self.fenster.melden("„%s“ nicht ausgeführt: In Revit ist gerade ein anderes Modell aktiv als „%s“. "
+                                        "Bitte zu diesem Modell wechseln." % (titel, self.fenster.einst.get("dokument_titel")),
+                                        fehler=True)
+                    continue
                 f(uiapp)
             except Abgebrochen:
                 self.fenster.melden("„%s“ abgebrochen." % titel, fehler=True)
@@ -64,6 +77,22 @@ class _Warteschlange(UI.IExternalEventHandler):
         return "Durchbruchskoordination"
 
 
+def _firmen(ordner):
+    """Firmen im Projekt – je Firmenordner nur eine Ereignisdatei lesen (nicht alle Tausende)."""
+    namen = set()
+    basis = os.path.join(ordner, "ereignisse")
+    for unter in (os.listdir(basis) if os.path.isdir(basis) else []):
+        dateien = sorted(d for d in os.listdir(os.path.join(basis, unter)) if d.endswith(".json"))
+        for d in dateien[:3]:
+            try:
+                with io.open(os.path.join(basis, unter, d), "r", encoding="utf-8-sig") as f:
+                    namen.add(json.load(f)["firma"])
+                break
+            except (IOError, OSError, ValueError, KeyError):
+                continue
+    return sorted(namen)
+
+
 class _Zeile(object):
     def __init__(self, p, text):
         self.id = p["id"]
@@ -74,7 +103,9 @@ class Werkzeug(forms.WPFWindow):
 
     def __init__(self, doc):
         forms.WPFWindow.__init__(self, XAML)
-        self.einst = einstellungen.laden()
+        self.doc = doc
+        self.einst = einstellungen.laden(doc)
+        self.dok_schluessel = self.einst.get("dokument")
         self.pruefset = {"typen": []}
         self.plan = None
         self.koord = {}            # oid -> Wirkung (offen/blockiert/freigabe) der Koordination
@@ -82,26 +113,32 @@ class Werkzeug(forms.WPFWindow):
         self.alle_ebenen = [e["name"] for e in sammeln.alle_ebenen(doc)]
         self.geschoss_vorschlag = sammeln.geschoss_vorschlag(doc)
         self.ebenen_doc = list(self.alle_ebenen)
-        self.vorlagen, self.aktive_vorlage = [], ""
-        self.ansicht_mitglieder = {}   # Vorlagen-ID -> Objekt-IDs, die in ihrer 3D-Ansicht sichtbar sind
+        self.staende, self.aktiver_stand = [], ""
+        self.ansicht_mitglieder = {}   # Stand-ID -> Objekt-IDs, die in seiner 3D-Ansicht sichtbar sind
+        self.zustand = None
+        self._sperre = False
+        self._liste_zeilen = {}
         self.ansichten_3d = sorted(v.Name for v in DB.FilteredElementCollector(doc).OfClass(DB.View3D) if not v.IsTemplate)
-        self._liste_boxen = {}
         self._familien_boxen = []
         self._handler = _Warteschlange(self)
         self._ereignis = UI.ExternalEvent.Create(self._handler)
-        self._vorlagen_2d = ansichten.vorlagen(doc, True)
-        self._vorlagen_3d = ansichten.vorlagen(doc, False)
         self.doc_titel = doc.Title
 
+        self.ansichten_bereich = modelle.Ansichten(self, doc)
         self._verbinden()
         self.projekt_zeichnen()
         if self._bereit():
             self._daten_laden()
+            self.ansichten_bereich.laden()
             self.einlesen()
         else:
             self.tabs.SelectedItem = self.t_projekt
             self.melden("Willkommen. Bitte zuerst Projektordner, Name, Firma und Rolle festlegen.")
         self._reiter_sichtbarkeit()
+        konflikt = einstellungen.projekt_konflikt(self.einst)
+        if konflikt:
+            self.tabs.SelectedItem = self.t_projekt
+            self.melden(konflikt, fehler=True)
 
     # ================================================================ Grundlagen
 
@@ -113,27 +150,20 @@ class Werkzeug(forms.WPFWindow):
         self.k_weiter.Click += lambda s, a: self.weiter()
         self.tabs.SelectionChanged += self._reiter_gewechselt
         self.p_ordner_waehlen.Click += lambda s, a: self._ordner_waehlen()
-        self.p_ordner.LostFocus += lambda s, a: self._rollen_laden()
+        self.p_ordner.LostFocus += lambda s, a: (self._rollen_laden(), self._projekt_info_zeigen())
         self.p_speichern.Click += lambda s, a: self.projekt_speichern()
         self.d_familien_ok.Click += lambda s, a: self._familien_uebernehmen()
-        self.d_vorlage.SelectionChanged += lambda s, a: self._vorlage_gewechselt()
-        self.d_vorlage_speichern.Click += lambda s, a: self._vorlage_speichern(melden=True)
-        self.d_vorlage_neu.Click += lambda s, a: self._vorlage_neu()
-        self.d_vorlage_weg.Click += lambda s, a: self._vorlage_loeschen()
-        self.d_ebene.SelectionChanged += lambda s, a: self._ebene_gewechselt()
+        self.d_stand.SelectionChanged += lambda s, a: self._stand_gewechselt()
+        self.d_stand_neu.Click += lambda s, a: self._stand_neu()
+        self.d_stand_weg.Click += lambda s, a: self._stand_loeschen()
         self.d_filter.SelectionChanged += lambda s, a: self.liste_zeichnen()
         self.d_suche.TextChanged += lambda s, a: self.liste_zeichnen()
-        self.d_alle.Click += lambda s, a: self._setzen(lambda oid: True)
-        self.d_keine.Click += lambda s, a: self._setzen(lambda oid: False)
-        self.d_markierung.Click += lambda s, a: self._markierung()
         self.d_zeigen.Click += lambda s, a: self._auswahl_zeigen()
         self.e_los.Click += lambda s, a: self.einreichen()
-        self.d_q_filter.Click += lambda s, a: self._quelle_setzen("filter")
-        self.d_q_ansicht.Click += lambda s, a: self._quelle_setzen("ansicht")
+        self.e_zurueck.Click += lambda s, a: self.stand_zurueckziehen()
         self.d_ansicht.SelectionChanged += lambda s, a: self._ansicht_gewaehlt()
         self.d_ansicht_lesen.Click += lambda s, a: self._mitglieder_lesen_auftrag()
         self.d_ansicht_neu.Click += lambda s, a: self._stand_ansicht_anlegen()
-        self.p_geschoss_vorschlag.Click += lambda s, a: self._geschosse_setzen(set(self.geschoss_vorschlag))
         self.d_filter.ItemsSource = FILTER
         self.d_filter.SelectedIndex = 0
 
@@ -169,19 +199,21 @@ class Werkzeug(forms.WPFWindow):
 
     def _reiter_sichtbarkeit(self):
         bereit = self._bereit()
+        self.t_ansichten.Visibility = Visibility.Visible if bereit else Visibility.Collapsed
         self.t_durch.Visibility = Visibility.Visible if (bereit and self._ersteller()) else Visibility.Collapsed
         self.t_einreichen.Visibility = Visibility.Visible if (bereit and self._ersteller()) else Visibility.Collapsed
         self.h_projekt.Text = ("✓  Projekt" if bereit else "Projekt")
         self.h_einreichen.Text = "Einreichen" if self._ersteller() else "Veröffentlichen"
         self.e_los.Content = "Einreichen" if self._ersteller() else "Veröffentlichen"
         if bereit:
-            self.untertitel.Text = "%s · %s · %s · Modell %s" % (self.einst["name"], self._rollenname(self.einst["rolle"]),
-                                                                self.einst["firma"], self.einst["modellkuerzel"])
+            self.untertitel.Text = "Projekt „%s“  ·  Modell %s  ·  %s · %s · %s" % (
+                self.einst.get("projekt_name") or "?", self.einst["modellkuerzel"], self.einst["name"],
+                self._rollenname(self.einst["rolle"]), self.einst["firma"])
         else:
-            self.untertitel.Text = "Planen · auswählen · einreichen"
+            self.untertitel.Text = "Revit-Modell „%s“ ist noch mit keinem Projekt verbunden" % self.einst.get("dokument_titel", "")
 
     def _sichtbare_reiter(self):
-        return [t for t in (self.t_projekt, self.t_durch, self.t_einreichen)
+        return [t for t in (self.t_projekt, self.t_ansichten, self.t_durch, self.t_einreichen)
                 if t.Visibility == Visibility.Visible]
 
     def weiter(self):
@@ -211,12 +243,13 @@ class Werkzeug(forms.WPFWindow):
             abgelehnt = [o for o in self.plan.objekte if self.koord.get(o) == "blockiert"]
             if abgelehnt:
                 self.tabs.SelectedItem = self.t_durch
-                self.d_filter.SelectedIndex = 3
                 self.melden("Hinweis: %d abgelehnte Durchbrüche – bitte nacharbeiten oder im Viewer klären." % len(abgelehnt), fehler=True)
                 return
-            if self._gewaehlt():
+            e = self._einordnung()
+            if e["neu"] or e["geaendert"] or e["entfaellt"]:
                 self.tabs.SelectedItem = self.t_einreichen
-                self.melden("Hinweis: %d Durchbrüche sind ausgewählt und noch nicht eingereicht." % len(self._gewaehlt()))
+                self.melden("Hinweis: Stand „%s“ hat %d neue/geänderte und %d entfallene Durchbrüche – noch nicht eingereicht."
+                            % (self._stand()["name"], len(e["neu"]) + len(e["geaendert"]), len(e["entfaellt"])))
                 return
         self.melden("Keine offenen Hinweise.")
 
@@ -227,36 +260,41 @@ class Werkzeug(forms.WPFWindow):
         self.p_ordner.Text = e.get("projektordner", "")
         self.p_name.Text = e.get("name", "")
         self.p_firma.Text = e.get("firma", "")
-        self.p_kuerzel.Text = e.get("modellkuerzel", "") or "HLS"
+        self.p_kuerzel.Text = e.get("modellkuerzel", "") or ""
+        self._projekt_info_zeigen()
         self.p_plant.IsChecked = bool(e.get("plant_durchbrueche"))
-        leer = "(keine Vorlage)"
-        self.p_vorlage_2d.ItemsSource = [leer] + self._vorlagen_2d
-        self.p_vorlage_3d.ItemsSource = [leer] + self._vorlagen_3d
-        self.p_vorlage_2d.SelectedItem = e.get("vorlage_2d") or leer
-        self.p_vorlage_3d.SelectedItem = e.get("vorlage_3d") or leer
         self._rollen_laden(e.get("rolle"))
-        geschosse = None
-        if self._bereit():
-            geschosse = sammeln.pruefset_laden(e["projektordner"], e["firma"]).get("geschosse")
-        self._geschosse_setzen(set(geschosse) if geschosse else set(self.geschoss_vorschlag))
 
-    def _geschosse_setzen(self, auswahl):
-        self.p_geschosse.Children.Clear()
-        for name in self.alle_ebenen:
-            b = CheckBox()
-            b.Content = name
-            b.IsChecked = name in auswahl
-            b.Margin = Thickness(0, 1, 0, 1)
-            self.p_geschosse.Children.Add(b)
-
-    def _geschosse_gewaehlt(self):
-        return [b.Content for b in self.p_geschosse.Children if b.IsChecked]
+    def _projekt_info_zeigen(self):
+        """Unter dem Ordnerfeld: welches Projekt im Ordner liegt und ob es zu diesem Revit-Modell passt."""
+        ordner = (self.p_ordner.Text or "").strip()
+        im_modell = self.einst.get("im_modell") or {}
+        p = einstellungen.projekt_info(ordner) if ordner else {}
+        self.p_projektname.Text = p.get("name") or ""
+        self.p_projektname.IsEnabled = bool(p)
+        zeilen, fehler = [], False
+        if p:
+            zeilen.append("Projekt im Ordner: „%s“" % (p.get("name") or "ohne Namen"))
+            if im_modell.get("projekt_id") and p.get("id") and im_modell["projekt_id"] != p["id"]:
+                zeilen.append("Achtung: Dieses Revit-Modell ist mit Projekt „%s“ verbunden – falscher Ordner?"
+                              % (im_modell.get("projekt_name") or "?"))
+                fehler = True
+        elif ordner:
+            zeilen.append("In diesem Ordner gibt es noch kein Projekt – „Übernehmen“ legt eines an.")
+        elif im_modell.get("projekt_id"):
+            zeilen.append("Dieses Revit-Modell ist mit Projekt „%s“ (Kürzel %s) verbunden. Bitte den Projektordner "
+                          "auf diesem Rechner wählen." % (im_modell.get("projekt_name") or "?", im_modell.get("modellkuerzel") or "?"))
+        else:
+            zeilen.append("Revit-Modell „%s“ ist noch mit keinem Projekt verbunden." % self.einst.get("dokument_titel", ""))
+        self.p_projekt_info.Text = "\n".join(zeilen)
+        self.p_projekt_info.Foreground = ROT if fehler else GRAU
 
     def _ordner_waehlen(self):
         pfad = forms.pick_folder(title="Projektordner der Durchbruchskoordination")
         if pfad:
             self.p_ordner.Text = pfad
             self._rollen_laden()
+            self._projekt_info_zeigen()
 
     def _rollen_laden(self, auswahl=None):
         self._rollen = []
@@ -266,9 +304,7 @@ class Werkzeug(forms.WPFWindow):
             try:
                 with io.open(pfad, "r", encoding="utf-8-sig") as f:
                     self._rollen = json.load(f).get("rollen", [])
-                a = Ablage(ordner)
-                a.lade_neue()
-                self.p_firma.ItemsSource = sorted(set(ev["firma"] for ev in a.alle()))
+                self.p_firma.ItemsSource = _firmen(ordner)
             except (IOError, OSError, ValueError):
                 pass
         else:
@@ -300,33 +336,57 @@ class Werkzeug(forms.WPFWindow):
                 return
             einstellungen.projekt_anlegen(ordner, name)
             self._rollen_laden()
+        projekt_id = einstellungen.projekt_id_sichern(ordner)
+        neuer_name = (self.p_projektname.Text or "").strip()
+        alt_name = einstellungen.projekt_info(ordner).get("name")
+        if neuer_name and alt_name and neuer_name != alt_name:
+            if forms.alert("Projektname für alle Beteiligten ändern?\n\n„%s“  →  „%s“" % (alt_name, neuer_name),
+                           title="Projektname", yes=True, no=True):
+                einstellungen.projekt_umbenennen(ordner, neuer_name)
+        p = einstellungen.projekt_info(ordner)
+        im_modell = self.einst.get("im_modell") or {}
+        if im_modell.get("projekt_id") and im_modell["projekt_id"] != projekt_id:
+            if not forms.alert("Dieses Revit-Modell ist mit Projekt „%s“ verbunden.\nDer gewählte Ordner enthält aber "
+                               "Projekt „%s“.\n\nModell wirklich auf das neue Projekt umstellen?"
+                               % (im_modell.get("projekt_name") or "?", p.get("name") or "?"),
+                               title="Anderes Projekt", yes=True, no=True):
+                return
         e = dict(self.einst)
         e["projektordner"] = ordner
+        e["projekt_id"] = projekt_id
+        e["projekt_name"] = p.get("name") or ""
+        e["projekt_id_ordner"] = projekt_id
         e["name"] = (self.p_name.Text or "").strip()
         e["firma"] = (self.p_firma.Text or "").strip()
         e["rolle"] = self._rollen[self.p_rolle.SelectedIndex]["id"] if self.p_rolle.SelectedIndex >= 0 else ""
         e["modellkuerzel"] = einstellungen.kuerzel_bereinigen(self.p_kuerzel.Text)
         e["plant_durchbrueche"] = bool(self.p_plant.IsChecked)
-        e["vorlage_2d"] = "" if self.p_vorlage_2d.SelectedIndex <= 0 else self.p_vorlage_2d.SelectedItem
-        e["vorlage_3d"] = "" if self.p_vorlage_3d.SelectedIndex <= 0 else self.p_vorlage_3d.SelectedItem
         self.p_kuerzel.Text = e["modellkuerzel"]
         if not (e["name"] and e["firma"] and e["rolle"] and e["modellkuerzel"]):
             self.melden("Bitte Name, Firma, Rolle und Kürzel angeben.", fehler=True)
             return
-        geschosse = self._geschosse_gewaehlt()
-        if not geschosse:
-            self.melden("Bitte mindestens eine Ebene als Geschoss anhaken.", fehler=True)
-            return
+        e["im_modell"] = {"projekt_id": projekt_id, "projekt_name": e["projekt_name"], "modellkuerzel": e["modellkuerzel"]}
         einstellungen.speichern(e)
         self.einst = e
         ps = sammeln.pruefset_laden(e["projektordner"], e["firma"])
-        ps["geschosse"] = geschosse
+        if not [g for g in (ps.get("geschosse") or []) if g in self.alle_ebenen]:
+            ps["geschosse"] = list(self.geschoss_vorschlag)   # Hilfsebenen (OK, UK, RD …) zusammengefasst
         sammeln.pruefset_speichern(e["projektordner"], e["firma"], ps)
         self._reiter_sichtbarkeit()
+        self._projekt_info_zeigen()
         self._daten_laden()
+        self.ansichten_bereich.laden()
+
+        def binden(uiapp):
+            from . import modellbindung
+            ok, text = modellbindung.schreiben(uiapp.ActiveUIDocument.Document, projekt_id, e["projekt_name"], e["modellkuerzel"])
+            self.log("Projektzuordnung: %s" % (text or "unverändert"))
+            if not ok:
+                self.melden(text, fehler=True)
+        self.auftrag("Projektzuordnung im Modell speichern", binden)
         self.einlesen()
-        self.tabs.SelectedItem = self.t_durch if self._ersteller() else self.t_projekt
-        self.melden("Gespeichert.")
+        self.tabs.SelectedItem = self.t_ansichten
+        self.melden("Gespeichert – Projekt „%s“." % e["projekt_name"])
 
     # ================================================================ Daten
 
@@ -335,7 +395,7 @@ class Werkzeug(forms.WPFWindow):
         self.pruefset = sammeln.pruefset_laden(ordner, firma)
         gs = set(self.pruefset.get("geschosse") or [])
         self.ebenen_doc = [n for n in self.alle_ebenen if n in gs] or list(self.alle_ebenen)
-        self.vorlagen, self.aktive_vorlage = pakete.vorlagen_laden(ordner, firma)
+        self.staende, self.aktiver_stand = staende.laden(ordner, firma, self.einst["modellkuerzel"])
 
     def einlesen(self):
         def f(uiapp):
@@ -345,13 +405,11 @@ class Werkzeug(forms.WPFWindow):
             self.baum = sammeln.baum(doc) if self._ersteller() else {}
             self.plan = aktionen.einreichen_planen(doc, self.einst, self.pruefset)
             self._mitglieder_lesen(doc)
-            ablage, z = aktionen.zustand_laden(ordner)
-            self.koord = dict((oid, z.gesamtstatus(oid)["wirkung"]) for oid in z.objekte)
+            ablage, self.zustand = aktionen.zustand_laden(ordner)
+            self.koord = dict((oid, self.zustand.gesamtstatus(oid)["wirkung"]) for oid in self.zustand.objekte)
             self.alles_zeichnen()
             if self._ersteller():
-                self.melden("%d Durchbrüche gelesen: %d neu, %d verschoben/geändert, %d unverändert, %d abgelehnt."
-                            % (len(self.plan.objekte), len(self.plan.neu), len(self.plan.geometrie), self.plan.unveraendert,
-                               len([o for o in self.plan.objekte if self.koord.get(o) == "blockiert"])))
+                self.melden("%d Durchbrüche der Koordinations-Familien im Modell gelesen." % len(self.plan.objekte))
             else:
                 self.melden("Bereit.")
         self.auftrag("Modell und Projektordner einlesen", f)
@@ -359,7 +417,7 @@ class Werkzeug(forms.WPFWindow):
     def alles_zeichnen(self):
         if self._ersteller():
             self.familien_zeichnen()
-            self.vorlagen_zeichnen()
+            self.staende_zeichnen()
         self.zusammenfassung_zeichnen()
 
     # ================================================================ Reiter 2: Durchbrüche
@@ -406,100 +464,118 @@ class Werkzeug(forms.WPFWindow):
         sammeln.pruefset_speichern(ordner, firma, ps)
         self.einlesen()
 
-    # ---------------------------------------------------------------- Vorlagen
+    # ---------------------------------------------------------------- Stände (Name + 3D-Ansicht)
 
-    def _vorlage(self):
-        return next((v for v in self.vorlagen if v["id"] == self.aktive_vorlage), None)
+    def _stand(self):
+        return next((s for s in self.staende if s["id"] == self.aktiver_stand), None)
 
-    def vorlagen_zeichnen(self):
-        self._vorlage_sperre = True
-        namen = [ALLE] + [v["name"] for v in self.vorlagen]
-        self.d_vorlage.ItemsSource = namen
-        v = self._vorlage()
-        self.d_vorlage.SelectedItem = v["name"] if v else ALLE
-        ebenen = []
-        if self.plan is not None:
-            ebenen = sorted(set(d.get("ebene") for d in self.plan.objekte.values()),
-                            key=lambda n: self.ebenen_doc.index(n) if n in self.ebenen_doc else 999)
-        self.d_ebene.ItemsSource = ["Alle Ebenen"] + ebenen
-        auswahl = (v.get("ebenen") or [None])[0] if v else None
-        self.d_ebene.SelectedItem = auswahl if auswahl in ebenen else "Alle Ebenen"
-        self.d_vorlage_speichern.IsEnabled = self.d_vorlage_weg.IsEnabled = v is not None
-        ansicht = bool(v and v.get("quelle") == "ansicht")
-        self.d_quelle_box.IsEnabled = v is not None
-        self.d_q_filter.IsChecked = not ansicht
-        self.d_q_ansicht.IsChecked = ansicht
+    def _staende_sichern(self):
+        ordner, firma = self._ordner()
+        staende.speichern(ordner, firma, self.einst["modellkuerzel"], self.staende, self.aktiver_stand)
+
+    def staende_zeichnen(self):
+        self._sperre = True
+        self.d_stand.ItemsSource = [s["name"] for s in self.staende]
+        s = self._stand()
+        self.d_stand.SelectedItem = s["name"] if s else None
         self.d_ansicht.ItemsSource = self.ansichten_3d
-        self.d_ansicht.SelectedItem = v.get("ansicht") if (v and v.get("ansicht") in self.ansichten_3d) else None
-        self.d_ansicht.IsEnabled = ansicht
-        self.d_ebene.IsEnabled = not ansicht
-        self._vorlage_sperre = False
+        self.d_ansicht.SelectedItem = s.get("ansicht") if (s and s.get("ansicht") in self.ansichten_3d) else None
+        for el in (self.d_ansicht, self.d_ansicht_lesen, self.d_ansicht_neu, self.d_stand_weg):
+            el.IsEnabled = s is not None
+        self._sperre = False
         self.liste_zeichnen()
 
-    # ---------------------------------------------------------------- Stand über 3D-Ansicht
-
-    def _quelle_setzen(self, quelle):
-        v = self._vorlage()
-        if v is None:
+    def _stand_gewechselt(self):
+        if self._sperre:
             return
-        v["quelle"] = quelle
-        if quelle == "ansicht" and not v.get("ansicht"):
-            name = "DBK Stand – %s" % v["name"]
-            if name in self.ansichten_3d:
-                v["ansicht"] = name
-        pakete.vorlagen_speichern(self.einst["projektordner"], self.einst["firma"], self.vorlagen, self.aktive_vorlage)
-        self.vorlagen_zeichnen()
-        if quelle == "ansicht":
-            if v.get("ansicht"):
-                self._mitglieder_lesen_auftrag()
-            else:
-                self.melden("3D-Ansicht wählen oder mit „Ansicht anlegen“ eine neue erzeugen.")
+        name = self.d_stand.SelectedItem
+        s = next((x for x in self.staende if x["name"] == name), None)
+        self.aktiver_stand = s["id"] if s else ""
+        self._staende_sichern()
+        self.staende_zeichnen()
+        if s and s.get("ansicht") and s["id"] not in self.ansicht_mitglieder:
+            self._mitglieder_lesen_auftrag()
+
+    def _stand_neu(self):
+        name = forms.ask_for_string(default="", prompt="Name des Stands (so sehen ihn alle im Viewer):", title="Neuer Stand")
+        name = (name or "").strip()
+        if not name:
+            return
+        if any(s["name"] == name for s in self.staende):
+            self.melden("Einen Stand mit diesem Namen gibt es schon.", fehler=True)
+            return
+        s = staende.neu(name)
+        vorschlag = "DBK Stand – %s" % name
+        if vorschlag in self.ansichten_3d:
+            s["ansicht"] = vorschlag
+        self.staende.append(s)
+        self.aktiver_stand = s["id"]
+        self._staende_sichern()
+        self.staende_zeichnen()
+        self.melden("Stand „%s“ angelegt. Jetzt eine 3D-Ansicht wählen oder mit „Ansicht anlegen“ erzeugen." % name)
+
+    def _stand_loeschen(self):
+        s = self._stand()
+        if s is None:
+            return
+        eingereicht = any(o.besitzer == self.einst["firma"] and o.stand == s["name"]
+                          for o in (self.zustand.objekte.values() if self.zustand else []))
+        text = "Stand „%s“ hier aus der Liste löschen?" % s["name"]
+        if eingereicht:
+            text += ("\n\nEr ist schon eingereicht – im Viewer bleibt er bestehen. Zum Entfernen für alle "
+                     "im Reiter „Einreichen“ auf „Stand zurückziehen“.")
+        if forms.alert(text, yes=True, no=True):
+            self.staende.remove(s)
+            self.aktiver_stand = ""
+            self._staende_sichern()
+            self.staende_zeichnen()
 
     def _ansicht_gewaehlt(self):
-        if getattr(self, "_vorlage_sperre", False):
+        if self._sperre:
             return
-        v = self._vorlage()
-        if v is None or self.d_ansicht.SelectedItem is None:
+        s = self._stand()
+        if s is None or self.d_ansicht.SelectedItem is None:
             return
-        v["ansicht"] = self.d_ansicht.SelectedItem
-        pakete.vorlagen_speichern(self.einst["projektordner"], self.einst["firma"], self.vorlagen, self.aktive_vorlage)
+        s["ansicht"] = self.d_ansicht.SelectedItem
+        self._staende_sichern()
         self._mitglieder_lesen_auftrag()
 
     def _mitglieder_lesen(self, doc):
-        """Für Stände mit 3D-Ansicht: welche Durchbrüche sind dort sichtbar?"""
+        """Je Stand: welche Durchbrüche (der Koordinations-Familien) sind in seiner 3D-Ansicht sichtbar?"""
         if self.plan is None:
             return
         nach_element = dict((eid(i), o) for o, i in self.plan.element_ids.items())
         ansichten = dict((v.Name, v) for v in DB.FilteredElementCollector(doc).OfClass(DB.View3D) if not v.IsTemplate)
         self.ansichten_3d = sorted(ansichten)
-        for v in self.vorlagen:
-            if v.get("quelle") != "ansicht" or v.get("ansicht") not in ansichten:
+        self.ansicht_mitglieder = {}
+        for s in self.staende:
+            if s.get("ansicht") not in ansichten:
                 continue
             sichtbar = set()
-            for e in DB.FilteredElementCollector(doc, ansichten[v["ansicht"]].Id).WhereElementIsNotElementType():
+            for e in DB.FilteredElementCollector(doc, ansichten[s["ansicht"]].Id).WhereElementIsNotElementType():
                 o = nach_element.get(eid(e.Id))
                 if o is not None:
                     sichtbar.add(o)
-            self.ansicht_mitglieder[v["id"]] = sichtbar
+            self.ansicht_mitglieder[s["id"]] = sichtbar
 
     def _mitglieder_lesen_auftrag(self):
         def f(uiapp):
             self._mitglieder_lesen(uiapp.ActiveUIDocument.Document)
-            v = self._vorlage()
-            self.vorlagen_zeichnen()
-            if v is not None and v.get("quelle") == "ansicht":
-                self.melden("„%s“: %d Durchbrüche in der Ansicht sichtbar." % (v.get("ansicht"), len(self.ansicht_mitglieder.get(v["id"], ()))))
+            self.staende_zeichnen()
+            s = self._stand()
+            if s is not None:
+                self.melden("„%s“: %d Durchbrüche in der Ansicht sichtbar." % (s.get("ansicht"), len(self._mitglieder())))
         self.auftrag("3D-Ansicht lesen", f)
 
     def _stand_ansicht_anlegen(self):
-        v = self._vorlage()
-        if v is None or self.plan is None:
-            self.melden("Bitte zuerst eine Auswahlvorlage (Stand) wählen oder anlegen.", fehler=True)
+        s = self._stand()
+        if s is None or self.plan is None:
+            self.melden("Bitte zuerst einen Stand wählen oder anlegen.", fehler=True)
             return
-        kandidaten = self._kandidaten() or pakete.in_vorlage(v, self.plan)
-        sichtbar = [self.plan.element_ids[o] for o in kandidaten if o not in self._aus()]
+        vorher = self._mitglieder()
+        sichtbar = [self.plan.element_ids[o] for o in (vorher or self.plan.objekte)]
         alle = [self.plan.element_ids[o] for o in self.plan.objekte]
-        name = "DBK Stand – %s" % v["name"]
+        name = "DBK Stand – %s" % s["name"]
 
         def f(uiapp):
             uidoc = uiapp.ActiveUIDocument
@@ -526,294 +602,220 @@ class Werkzeug(forms.WPFWindow):
                     ansicht.HideElements(sammeln._liste(weg))
                 t.Commit()
             uidoc.ActiveView = ansicht
-            v["quelle"], v["ansicht"] = "ansicht", name
-            pakete.vorlagen_speichern(self.einst["projektordner"], self.einst["firma"], self.vorlagen, self.aktive_vorlage)
+            s["ansicht"] = name
+            self._staende_sichern()
             self._mitglieder_lesen(doc)
-            self.vorlagen_zeichnen()
-            self.melden("„%s“ angelegt: %d Durchbrüche. In Revit aus-/einblenden, dann „Neu lesen“." % (name, len(sichtbar)))
+            self.staende_zeichnen()
+            self.melden("„%s“ angelegt: %d Durchbrüche. In Revit ausblenden, was nicht zum Stand gehört, dann „Neu lesen“."
+                        % (name, len(sichtbar)))
         self.auftrag("Stand-Ansicht anlegen", f)
 
-    def _vorlage_gewechselt(self):
-        if getattr(self, "_vorlage_sperre", False):
-            return
-        name = self.d_vorlage.SelectedItem
-        v = next((x for x in self.vorlagen if x["name"] == name), None)
-        self.aktive_vorlage = v["id"] if v else ""
-        pakete.vorlagen_speichern(self.einst["projektordner"], self.einst["firma"], self.vorlagen, self.aktive_vorlage)
-        self.vorlagen_zeichnen()
+    # ---------------------------------------------------------------- Liste des Stands
 
-    def _vorlage_neu(self):
-        name = forms.ask_for_string(default="EG Rohbau", prompt="Name der Auswahlvorlage:", title="Neue Auswahlvorlage")
-        if not name:
-            return
-        if any(v["name"] == name for v in self.vorlagen):
-            self.melden("Eine Vorlage mit diesem Namen gibt es schon.", fehler=True)
-            return
-        v = pakete.neue_vorlage(name)
-        if self.d_ebene.SelectedIndex > 0:
-            v["ebenen"] = [self.d_ebene.SelectedItem]
-        self.vorlagen.append(v)
-        self.aktive_vorlage = v["id"]
-        self._vorlage_speichern(melden=False)
-        self.vorlagen_zeichnen()
-        self.melden("Vorlage „%s“ angelegt." % name)
-
-    def _vorlage_loeschen(self):
-        v = self._vorlage()
-        if v and forms.alert("Auswahlvorlage „%s“ löschen?" % v["name"], yes=True, no=True):
-            self.vorlagen.remove(v)
-            self.aktive_vorlage = ""
-            pakete.vorlagen_speichern(self.einst["projektordner"], self.einst["firma"], self.vorlagen, "")
-            self.vorlagen_zeichnen()
-
-    def _vorlage_speichern(self, melden=True):
-        v = self._vorlage()
-        if v is None:
-            return
-        v["ebenen"] = [self.d_ebene.SelectedItem] if self.d_ebene.SelectedIndex > 0 else []
-        if self.plan is not None:
-            v["bekannt"] = sorted(pakete.in_vorlage(v, self.plan))
-        pakete.vorlagen_speichern(self.einst["projektordner"], self.einst["firma"], self.vorlagen, self.aktive_vorlage)
-        if melden:
-            self.melden("Vorlage „%s“ gespeichert." % v["name"])
-            self.liste_zeichnen()
-
-    def _ebene_gewechselt(self):
-        if getattr(self, "_vorlage_sperre", False):
-            return
-        v = self._vorlage()
-        if v is not None:
-            v["ebenen"] = [self.d_ebene.SelectedItem] if self.d_ebene.SelectedIndex > 0 else []
-            pakete.vorlagen_speichern(self.einst["projektordner"], self.einst["firma"], self.vorlagen, self.aktive_vorlage)
-        self.liste_zeichnen()
-
-    # ---------------------------------------------------------------- Exemplarliste
-
-    def _aus(self):
-        v = self._vorlage()
-        return set(v.get("aus") or []) if v else set(self.pruefset.get("ausgeschlossen") or [])
-
-    def _aus_setzen(self, aus):
-        v = self._vorlage()
-        ordner, firma = self._ordner()
-        if v is not None:
-            v["aus"] = sorted(aus)
-            pakete.vorlagen_speichern(ordner, firma, self.vorlagen, self.aktive_vorlage)
-        else:
-            ps = sammeln.pruefset_laden(ordner, firma)
-            ps["ausgeschlossen"] = sorted(aus)
-            sammeln.pruefset_speichern(ordner, firma, ps)
-            self.pruefset["ausgeschlossen"] = ps["ausgeschlossen"]
-
-    def _kandidaten(self):
-        """Objekt-IDs der aktuellen Vorlage/Ebene."""
-        if self.plan is None:
+    def _mitglieder(self):
+        """Objekt-IDs, die beim Einreichen zum Stand gehören (sichtbar in der Ansicht, nicht fremd)."""
+        s = self._stand()
+        if s is None or self.plan is None:
             return []
-        v = self._vorlage()
-        if v is not None and v.get("quelle") == "ansicht":
-            mitglieder = self.ansicht_mitglieder.get(v["id"], set())
-            return [o for o in self.plan.objekte if o in mitglieder]
-        ebene = self.d_ebene.SelectedItem if self.d_ebene.SelectedIndex > 0 else None
-        oids = pakete.in_vorlage(v, self.plan)
-        return [o for o in oids if not ebene or self.plan.objekte[o].get("ebene") == ebene]
+        sichtbar = self.ansicht_mitglieder.get(s["id"], set())
+        return [o for o in self.plan.objekte if o in sichtbar and self.plan.zustand[o] != aktionen.FREMD]
 
-    def _waehlbar(self, oid):
-        return self.plan.zustand[oid] in (aktionen.NEU, aktionen.GEOMETRIE, aktionen.DATEN)
+    def _einordnung(self):
+        """{"neu", "geaendert", "daten", "unveraendert", "entfaellt", "fremd"} -> Objekt-IDs für den aktuellen Stand."""
+        s = self._stand()
+        e = dict((k, []) for k in ("neu", "geaendert", "daten", "unveraendert", "entfaellt", "fremd"))
+        if s is None or self.plan is None:
+            return e
+        sichtbar = self.ansicht_mitglieder.get(s["id"], set())
+        art = {aktionen.NEU: "neu", aktionen.GEOMETRIE: "geaendert", aktionen.DATEN: "daten",
+               aktionen.UNVERAENDERT: "unveraendert", aktionen.FREMD: "fremd"}
+        for o in self.plan.objekte:
+            if o in sichtbar:
+                e[art[self.plan.zustand[o]]].append(o)
+        mitglieder = set(self._mitglieder())
+        if self.zustand is not None:
+            for oid, o in self.zustand.objekte.items():
+                if o.besitzer == self.einst["firma"] and o.stand == s["name"] and oid not in mitglieder:
+                    e["entfaellt"].append(oid)
+        return e
 
-    def _gewaehlt(self):
-        if self.plan is None:
-            return []
-        aus = self._aus()
-        return [o for o in self._kandidaten() if self._waehlbar(o) and o not in aus]
-
-    def _zeilentext(self, oid, neu_dazu):
-        d = self.plan.objekte[oid]
-        z = self.plan.zustand[oid]
-        k = self.koord.get(oid)
-        if z == aktionen.UNVERAENDERT:
-            zustand = "geschickt · %s" % KOORD_TEXT.get(k, "in Prüfung")
-        elif z == aktionen.FREMD:
-            zustand = "gehört anderer Firma"
-        elif z == aktionen.NEU:
-            zustand = "neu" + (" · neu hinzugekommen" if neu_dazu else "")
-        elif k == "blockiert":
-            zustand = "abgelehnt → geändert"
-        else:
-            zustand = aktionen.ZUSTAND_TEXT[z]
+    def _zeilentext(self, oid, art):
+        d = self.plan.objekte.get(oid) or (self.zustand.objekte[oid].daten if oid in self.zustand.objekte else {})
         w = d.get("wirt") or {}
-        wirt = {"Wände": "Wand", "Geschossdecken": "Decke"}.get(w.get("kategorie"), w.get("kategorie") or "")
+        wirt = {"Wände": "Wand", "Geschossdecken": "Decke", "Dächer": "Dach"}.get(w.get("kategorie"), w.get("kategorie") or "")
         if w.get("tragend"):
             wirt += " tragend"
-        return "%s  ·  %s %s  ·  %s  ·  %s" % (d.get("nummer"), d.get("typ"), d.get("groesse"), wirt, zustand)
+        k = self.koord.get(oid)
+        zusatz = ""
+        if art == "unveraendert":
+            zusatz = " · " + KOORD_TEXT.get(k, "in Prüfung")
+        elif art == "geaendert" and k:
+            zusatz = " · Prüfung beginnt neu"
+        alt = self.zustand.objekte.get(oid) if self.zustand else None
+        if alt is not None and alt.stand and alt.stand != (self._stand() or {}).get("name") and art != "entfaellt":
+            zusatz += " · bisher in „%s“" % alt.stand
+        return "%s  ·  %s  ·  %s  ·  %s%s" % (d.get("nummer"), d.get("groesse"), wirt, ART_TEXT[art], zusatz)
 
     def liste_zeichnen(self):
         self.d_liste.Items.Clear()
-        self._liste_boxen = {}
-        if self.plan is None:
-            return
-        v = self._vorlage()
-        bekannt = set(v.get("bekannt") or []) if v else None
-        aus = self._aus()
-        filt = self.d_filter.SelectedIndex
+        self._liste_zeilen = {}
+        einordnung = self._einordnung()
+        filt = FILTER_ARTEN[self.d_filter.SelectedIndex] if self.d_filter.SelectedIndex >= 0 else None
         such = (self.d_suche.Text or "").strip().lower()
         gruppen = {}
-        neu_dazu_anzahl = 0
-        for oid in self._kandidaten():
-            z = self.plan.zustand[oid]
-            k = self.koord.get(oid)
-            neu_dazu = bekannt is not None and bool(bekannt) and oid not in bekannt
-            if neu_dazu and self._waehlbar(oid) and oid not in aus:
-                neu_dazu_anzahl += 1
-            if filt == 1 and not self._waehlbar(oid):
+        for art in ("neu", "geaendert", "daten", "unveraendert", "entfaellt", "fremd"):
+            if filt and art not in filt:
                 continue
-            if filt == 2 and z != aktionen.UNVERAENDERT:
-                continue
-            if filt == 3 and k != "blockiert":
-                continue
-            if filt == 4 and not (oid in aus and self._waehlbar(oid)):
-                continue
-            text = self._zeilentext(oid, neu_dazu)
-            if such and such not in (text + " " + (self.plan.objekte[oid].get("familie") or "")).lower():
-                continue
-            gruppen.setdefault(self.plan.objekte[oid].get("ebene"), []).append((oid, text, neu_dazu))
+            for oid in einordnung[art]:
+                text = self._zeilentext(oid, art)
+                d = self.plan.objekte.get(oid) or self.zustand.objekte[oid].daten
+                if such and such not in (text + " " + (d.get("familie") or "")).lower():
+                    continue
+                gruppen.setdefault(d.get("ebene"), []).append((oid, text, art, d))
         for ebene in sorted(gruppen, key=lambda n: self.ebenen_doc.index(n) if n in self.ebenen_doc else 999):
             knoten = TreeViewItem()
             knoten.Header = "%s  (%d)" % (ebene, len(gruppen[ebene]))
-            knoten.IsExpanded = len(gruppen) <= 3 or filt in (1, 3)
-            for oid, text, neu_dazu in sorted(gruppen[ebene], key=lambda x: self.plan.objekte[x[0]].get("nummer", "")):
-                b = CheckBox()
-                b.Content = text
-                b.Tag = oid
-                waehlbar = self._waehlbar(oid)
-                b.IsEnabled = waehlbar
-                b.IsChecked = (oid not in aus) if waehlbar else (self.plan.zustand[oid] == aktionen.UNVERAENDERT)
+            knoten.IsExpanded = len(gruppen) <= 3 or bool(filt and "unveraendert" not in filt)
+            for oid, text, art, d in sorted(gruppen[ebene], key=lambda x: x[3].get("nummer") or ""):
+                t = TextBlock()
+                t.Text = text
+                t.Tag = oid
                 if self.koord.get(oid) == "blockiert":
-                    b.Foreground = ROT
-                elif neu_dazu or self.plan.zustand[oid] == aktionen.NEU:
-                    b.Foreground = ORANGE if neu_dazu else b.Foreground
+                    t.Foreground = ROT
+                elif art in ("neu", "geaendert"):
+                    t.Foreground = ORANGE
+                elif art in ("entfaellt", "fremd"):
+                    t.Foreground = GRAU
+                    t.TextDecorations = System.Windows.TextDecorations.Strikethrough if art == "entfaellt" else None
                 elif self.koord.get(oid) == "freigabe":
-                    b.Foreground = GRUEN
-                b.Click += lambda s, a: self._haken_geaendert(s)
+                    t.Foreground = GRUEN
                 item = TreeViewItem()
-                item.Header = b
+                item.Header = t
                 knoten.Items.Add(item)
-                self._liste_boxen[oid] = b
+                self._liste_zeilen[oid] = t
             self.d_liste.Items.Add(knoten)
-        self.d_info.Text = ("%d neu hinzugekommen – angehakt" % neu_dazu_anzahl) if neu_dazu_anzahl else ""
-        self._summe()
+        self._summe(einordnung)
 
-    def _haken_geaendert(self, box):
-        aus = self._aus()
-        if box.IsChecked:
-            aus.discard(box.Tag)
-        else:
-            aus.add(box.Tag)
-        self._aus_setzen(aus)
-        self._summe()
-
-    def _setzen(self, regel):
-        aus = self._aus()
-        for oid, b in self._liste_boxen.items():
-            if not b.IsEnabled:
-                continue
-            an = bool(regel(oid))
-            b.IsChecked = an
-            if an:
-                aus.discard(oid)
-            else:
-                aus.add(oid)
-        self._aus_setzen(aus)
-        self._summe()
-
-    def _summe(self):
-        n = len(self._gewaehlt())
-        self.d_summe.Text = "%d gehen in die nächste Runde" % n
+    def _summe(self, einordnung=None):
+        e = einordnung or self._einordnung()
+        s = self._stand()
+        if s is None:
+            self.d_summe.Text = "Kein Stand gewählt"
+            self.h_durch.Text = "Durchbrüche"
+            return
+        if not s.get("ansicht"):
+            self.d_summe.Text = "Noch keine 3D-Ansicht gewählt"
+            self.h_durch.Text = "Durchbrüche"
+            return
+        teile = ["%d %s" % (len(e[k]), t) for k, t in (("neu", "neu"), ("geaendert", "geändert"), ("daten", "Daten geändert"),
+                                                       ("unveraendert", "unverändert"), ("entfaellt", "entfallen"),
+                                                       ("fremd", "anderer Firma")) if e[k]]
+        self.d_summe.Text = " · ".join(teile) or "Keine Durchbrüche in der Ansicht sichtbar"
+        n = len(e["neu"]) + len(e["geaendert"])
         self.h_durch.Text = "Durchbrüche  (%d)" % n if n else "Durchbrüche"
 
-    def _markierung(self):
-        def f(uiapp):
-            ids = set(eid(i) for i in uiapp.ActiveUIDocument.Selection.GetElementIds())
-            if not ids:
-                self.melden("In Revit ist nichts markiert.", fehler=True)
-                return
-            self._setzen(lambda oid: eid(self.plan.element_ids[oid]) in ids)
-            self.melden("Revit-Markierung übernommen.")
-        self.auftrag("Revit-Markierung übernehmen", f)
-
     def _auswahl_zeigen(self):
-        if self.plan is None:
+        if self.plan is None or self._stand() is None:
             return
-        alle = [self.plan.element_ids[o] for o in self._kandidaten()]
-        gewaehlt = [self.plan.element_ids[o] for o in self._gewaehlt()]
+        e = self._einordnung()
+        alle = [self.plan.element_ids[o] for o in self._mitglieder()]
+        neu = [self.plan.element_ids[o] for o in e["neu"] + e["geaendert"]]
 
         def f(uiapp):
-            ansichten.kontrollansicht(uiapp.ActiveUIDocument, self.einst, alle, gewaehlt)
-            self.melden("Kontrollansicht: orange = geht in die nächste Runde, grau = schon geschickt oder zurückgehalten.")
-        self.auftrag("Auswahl in Revit zeigen", f)
+            ansichten.kontrollansicht(uiapp.ActiveUIDocument, self.einst, alle, neu)
+            self.melden("Kontrollansicht: orange = neu/geändert, grau = unverändert.")
+        self.auftrag("Stand in Revit zeigen", f)
 
-    # ================================================================ Reiter 4: Einreichen
+    # ================================================================ Reiter 3: Einreichen
 
     def zusammenfassung_zeichnen(self):
         if not self._bereit():
             return
-        n = len(self._gewaehlt()) if self._ersteller() else 0
-        v = self._vorlage()
-        zeilen = ["•  Durchbrüche: %d gehen in die Prüfung%s" % (n, " (Vorlage „%s“)" % v["name"] if v else "")]
-        if n == 0:
-            zeilen.append("   Nichts Neues oder Geändertes ausgewählt.")
-        zeilen.append("•  Modelle werden hier nicht mitgeschickt – dafür im Reiter „Modell“ auf „Modell aktualisieren“.")
+        s = self._stand() if self._ersteller() else None
+        if s is None:
+            self.e_zusammenfassung.Text = "Bitte im Reiter „Durchbrüche“ einen Stand wählen."
+            self.e_runde_box.Visibility = Visibility.Collapsed
+            self.e_los.IsEnabled = self.e_zurueck.IsEnabled = False
+            return
+        e = self._einordnung()
+        n_mit = len(self._mitglieder())
+        zeilen = ["Stand „%s“ aus 3D-Ansicht „%s“ – %d Durchbrüche:" % (s["name"], s.get("ansicht") or "–", n_mit),
+                  "•  %d neu, %d geändert (Lage/Größe) – gehen in die Prüfung" % (len(e["neu"]), len(e["geaendert"])),
+                  "•  %d unverändert – bleiben, Entscheidungen gelten weiter" % len(e["unveraendert"])]
+        if e["daten"]:
+            zeilen.append("•  %d nur Daten geändert (z. B. Nummer) – Entscheidungen gelten weiter" % len(e["daten"]))
+        if e["entfaellt"]:
+            zeilen.append("•  %d nicht mehr in der Ansicht – fallen aus der Koordination heraus" % len(e["entfaellt"]))
+        if e["fremd"]:
+            zeilen.append("•  %d gehören einer anderen Firma – werden nicht eingereicht" % len(e["fremd"]))
+        zeilen.append("")
+        zeilen.append("Modelle und Pläne für den Viewer laufen getrennt über den Reiter „Ansichten“.")
         self.e_zusammenfassung.Text = "\n".join(zeilen)
-        self.e_runde_box.Visibility = Visibility.Visible if n else Visibility.Collapsed
+        pruefen = bool(e["neu"] or e["geaendert"])
+        self.e_runde_box.Visibility = Visibility.Visible if pruefen else Visibility.Collapsed
         if not (self.e_runde.Text or "").strip():
             self.e_runde.Text = "Prüfrunde %s" % time.strftime("%d.%m.%Y")
-        m = len(self.plan.entfallen) if (self.plan is not None and self._ersteller()) else 0
-        self.e_entfallen.Content = "Im Modell gelöschte Durchbrüche aus der Koordination entfernen (%d)" % m
-        self.e_entfallen.Visibility = Visibility.Visible if m else Visibility.Collapsed
-        self.e_entfallen.IsChecked = m > 0
+        self.e_los.IsEnabled = bool(n_mit or e["entfaellt"])
+        self.e_los.Content = "Stand „%s“ einreichen" % s["name"]
+        eingereicht = self.zustand is not None and ("%s|%s" % (self.einst["firma"], s["name"])) in self.zustand.staende \
+            or any(o.besitzer == self.einst["firma"] and o.stand == s["name"] for o in (self.zustand.objekte.values() if self.zustand else []))
+        self.e_zurueck.IsEnabled = bool(eingereicht)
 
     def einreichen(self):
-        """Nur Durchbrüche – dauert Sekunden. Modelle laufen getrennt über „Modell aktualisieren“."""
-        auswahl = set(self._gewaehlt())
-        entfallen = bool(self.e_entfallen.IsChecked) and self.e_entfallen.Visibility == Visibility.Visible
-        if not auswahl and not entfallen:
-            self.melden("Nichts zum Einreichen ausgewählt.", fehler=True)
+        s = self._stand()
+        if s is None:
+            self.melden("Bitte zuerst einen Stand wählen.", fehler=True)
+            return
+        if not s.get("ansicht"):
+            self.melden("Der Stand hat noch keine 3D-Ansicht.", fehler=True)
+            return
+        e = self._einordnung()
+        if not self._mitglieder() and not forms.alert(
+                "In der Ansicht ist kein Durchbruch sichtbar.\nStand „%s“ trotzdem einreichen? Alle bisher eingereichten "
+                "Durchbrüche dieses Stands fallen dann heraus." % s["name"], yes=True, no=True):
             return
         runde = (self.e_runde.Text or "").strip()
-        if auswahl and not runde:
+        if (e["neu"] or e["geaendert"]) and not runde:
             self.melden("Bitte einen Namen für die Prüfrunde angeben.", fehler=True)
             return
 
         def f(uiapp):
             doc = uiapp.ActiveUIDocument.Document
-            with Fortschritt("Durchbrüche einreichen", ["Durchbrüche lesen", "In den Projektordner schreiben",
-                                                         "Auswahlvorlage merken"]) as fs:
+            with Fortschritt("Stand einreichen", ["Durchbrüche lesen", "Ansicht lesen", "In den Projektordner schreiben"]) as fs:
                 fs.schritt(0, "Lage, Größe und Bauteil je Durchbruch …")
-                plan = aktionen.einreichen_planen(doc, self.einst, self.pruefset,
-                                                  fortschritt=lambda i, n: fs.menge(i, n, "Durchbrüche"))
-                fs.schritt(1, "%d Durchbrüche, Prüfrunde „%s“" % (len(auswahl), runde))
-                v = self._vorlage()
-                r = aktionen.einreichen_ausfuehren(self.einst, plan, rundenname=runde,
-                                                   auswahl=set(o for o in auswahl if o in plan.objekte), entfallen=entfallen,
-                                                   stand=v["name"] if v else "Ohne Stand")
-                fs.schritt(2)
-                v = self._vorlage()
-                if v is not None:
-                    v["bekannt"] = sorted(set(v.get("bekannt") or []) | set(pakete.in_vorlage(v, plan)))
-                    pakete.vorlagen_speichern(self.einst["projektordner"], self.einst["firma"], self.vorlagen, self.aktive_vorlage)
+                self.plan = aktionen.einreichen_planen(doc, self.einst, self.pruefset,
+                                                       fortschritt=lambda i, n: fs.menge(i, n, "Durchbrüche"))
+                fs.schritt(1, "3D-Ansicht „%s“" % s["ansicht"])
+                self._mitglieder_lesen(doc)
+                mitglieder = self._mitglieder()
+                fs.schritt(2, "%d Durchbrüche" % len(mitglieder))
+                r = aktionen.stand_einreichen(self.einst, self.plan, s["name"], mitglieder, rundenname=runde)
                 fs.fertig()
-                fs.detail("%d zur Prüfung, %d Datenabgleich, %d entfernt." % (r["eingereicht"], r["geaendert"], r["geloescht"]))
-            self.log("Durchbrüche: %d zur Prüfung, %d Datenabgleich, %d entfernt (Runde „%s“)."
-                     % (r["eingereicht"], r["geaendert"], r["geloescht"], runde))
+                fs.detail("%d neu, %d geändert, %d unverändert, %d entfallen." % (r["neu"], r["geaendert"], r["unveraendert"], r["entfallen"]))
+            self.log("Stand „%s“: %d neu, %d geändert, %d unverändert, %d entfallen (Runde „%s“)."
+                     % (s["name"], r["neu"], r["geaendert"], r["unveraendert"], r["entfallen"], runde or "–"))
         self.auftrag("Einreichen", f)
+        self.einlesen()
+
+    def stand_zurueckziehen(self):
+        s = self._stand()
+        if s is None:
+            return
+        if not forms.alert("Stand „%s“ für alle zurückziehen?\n\nAlle Durchbrüche dieses Stands verschwinden aus der "
+                           "Koordination (auch die Prüf-Entscheidungen). Erneutes Einreichen beginnt von vorn."
+                           % s["name"], title="Stand zurückziehen", yes=True, no=True):
+            return
+        aktionen.stand_zurueckziehen(self.einst, s["name"])
+        self.log("Stand „%s“ zurückgezogen." % s["name"])
         self.einlesen()
 
     # ================================================================ Werkzeugleiste
 
     def in_revit_zeigen(self):
         item = self.d_liste.SelectedItem
-        oid = item.Header.Tag if (item is not None and isinstance(item.Header, CheckBox)) else None
-        if oid is None or self.plan is None:
-            self.melden("Bitte im Reiter „Durchbrüche“ eine Zeile markieren.", fehler=True)
+        oid = item.Header.Tag if (item is not None and isinstance(item.Header, TextBlock)) else None
+        if oid is None or self.plan is None or oid not in self.plan.objekte:
+            self.melden("Bitte im Reiter „Durchbrüche“ eine Zeile eines vorhandenen Durchbruchs markieren.", fehler=True)
             return
         objekt = dict(self.plan.objekte[oid])
 

@@ -142,6 +142,43 @@ class AblaufTest(OrdnerTest):
         self.assertEqual(z.modelle["ARC"]["ausrichtung"]["versatz_m"], [1, 2, 0])
         self.assertEqual(len(z.ignoriert), 1)
 
+    def test_modell_entfernen(self):
+        self.arc.schreibe("modell_veroeffentlicht", None, {"modell": "ARC", "datei": "a.fbx", "hash": "a"})
+        self.twp.schreibe("modell_entfernt", None, {"modell": "ARC"})          # fremd → ignoriert
+        self.assertIn("ARC", self.zustand().modelle)
+        self.arc.schreibe("modell_entfernt", None, {"modell": "ARC"})
+        self.assertNotIn("ARC", self.zustand().modelle)
+        self.twp.schreibe("modell_veroeffentlicht", None, {"modell": "ARC", "datei": "b.fbx", "hash": "b"})
+        self.assertEqual(self.zustand().modelle["ARC"]["besitzer"], "Tragwerk Z")   # beginnt von vorn
+        with self.assertRaises(ValueError):
+            self.arc.schreibe("modell_entfernt", None, {})
+
+    def test_stand_momentaufnahme(self):
+        a, b, c = objekt("TGA-1"), objekt("TGA-2"), objekt("TGA-3")
+        self.tga.schreibe("stand_eingereicht", None, {"stand": "EG", "runde": "R1", "mitglieder": ["H:1", "H:2", "H:3"],
+                                                      "objekte": {"H:1": a, "H:2": b, "H:3": c}})
+        z = self.zustand()
+        self.assertEqual(sorted(z.objekte), ["H:1", "H:2", "H:3"])
+        self.assertEqual(z.objekte["H:1"].einreichung, "neu")
+        self.arc.schreibe("status", "H:1", {"wert": "freigegeben", "geometrie_hash": a["geometrie_hash"]})
+        # erneut: H:1 unverändert (nur Mitglied), H:2 nur Daten geändert, H:3 fehlt
+        b2 = dict(b, nummer="TGA-2b")
+        self.tga.schreibe("stand_eingereicht", None, {"stand": "EG", "runde": None, "mitglieder": ["H:1", "H:2"],
+                                                      "objekte": {"H:2": b2}})
+        z = self.zustand()
+        self.assertEqual(sorted(z.objekte), ["H:1", "H:2"])                      # H:3 fällt heraus
+        self.assertEqual(z.objekte["H:1"].einreichung, "unveraendert")
+        self.assertEqual(z.objekte["H:2"].einreichung, "unveraendert")          # gleicher Hash = Datenabgleich
+        self.assertEqual(z.objekte["H:2"].daten["nummer"], "TGA-2b")
+        self.assertEqual(z.gesamtstatus("H:1")["rollen"]["ARC"]["status"], "freigegeben")   # Entscheidung bleibt
+        self.assertEqual(z.staende["IGF|EG"]["anzahl"], 2)
+        self.tga.schreibe("stand_zurueckgezogen", None, {"stand": "EG"})
+        z = self.zustand()
+        self.assertEqual(z.objekte, {})
+        self.assertNotIn("IGF|EG", z.staende)
+        with self.assertRaises(ValueError):
+            self.tga.schreibe("stand_eingereicht", None, {"stand": "EG", "mitglieder": [], "objekte": {"H:9": a}})
+
     def test_verlauf_ist_chronologisch(self):
         self.einreichen()
         self.twp.schreibe("nachricht", OID, {"text": "Frage zur Lage"})

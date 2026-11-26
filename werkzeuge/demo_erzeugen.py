@@ -205,6 +205,28 @@ def kanten_fuellen(ordner, uhr):
     schreibe(uhr, arc, "12-01 08:19", "modell_veroeffentlicht", None, {"modell": "ARC", "datei": "x", "hash": "1"})
     schreibe(uhr, twp, "12-01 08:20", "modell_veroeffentlicht", None, {"modell": "ARC", "datei": "y", "hash": "2"})
 
+    # Stand als Momentaufnahme: S1 mit s1..s3, dann s1 unverändert, s2 verschoben, s3 fehlt (fällt heraus), s4 neu
+    s = dict((k, objekt(k, "E", [i, 0, 0], [i + 0.3, 0.3, 0.3], {"kategorie": "Wände", "tragend": True}, "L"))
+             for i, k in enumerate(["S1", "S2", "S3", "S4", "S5"]))
+    s2b = objekt("S2", "E", [1.5, 0, 0], [1.8, 0.3, 0.3], {"kategorie": "Wände", "tragend": True}, "L")
+    schreibe(uhr, tga, "12-01 09:00", "stand_eingereicht", None, {
+        "stand": "S1", "runde": "R9", "mitglieder": ["X:s1", "X:s2", "X:s3"],
+        "objekte": {"X:s1": s["S1"], "X:s2": s["S2"], "X:s3": s["S3"]}})
+    schreibe(uhr, arc, "12-01 09:05", "status", "X:s1", {"wert": "freigegeben", "geometrie_hash": s["S1"]["geometrie_hash"]})
+    schreibe(uhr, arc, "12-01 09:06", "status", "X:s2", {"wert": "abgelehnt", "geometrie_hash": s["S2"]["geometrie_hash"]})
+    schreibe(uhr, tga, "12-01 09:10", "stand_eingereicht", None, {
+        "stand": "S1", "runde": None, "mitglieder": ["X:s1", "X:s2", "X:s4", "X:g"],
+        "objekte": {"X:s2": s2b, "X:s4": s["S4"]}})                  # X:g wechselt in den Stand
+    schreibe(uhr, arc, "12-01 09:11", "stand_eingereicht", None, {      # fremde Firma: X:s1 bleibt bei IGF
+        "stand": "S1", "runde": None, "mitglieder": ["X:s1"], "objekte": {"X:s1": s["S5"]}})
+    # S2 einreichen und wieder zurückziehen
+    schreibe(uhr, tga, "12-01 09:20", "stand_eingereicht", None, {
+        "stand": "S2", "runde": None, "mitglieder": ["X:s5"], "objekte": {"X:s5": s["S5"]}})
+    schreibe(uhr, arc, "12-01 09:20", "status", "X:s5", {"wert": "abgelehnt", "geometrie_hash": s["S5"]["geometrie_hash"]})
+    schreibe(uhr, tga, "12-01 09:21", "stand_zurueckgezogen", None, {"stand": "S2"})
+    schreibe(uhr, tga, "12-01 09:22", "stand_eingereicht", None, {    # beginnt von vorn: Ablehnung gilt nicht mehr
+        "stand": "S3", "runde": None, "mitglieder": ["X:s5"], "objekte": {"X:s5": s["S5"]}})
+
 
 def sollwerte(ordner, projekt):
     leser = Ablage(ordner)
@@ -226,6 +248,8 @@ def sollwerte(ordner, projekt):
             "verlauf_laengen": dict((oid, len(o.verlauf)) for oid, o in z.objekte.items()),
             "runden": sorted(z.runden),
             "staende": dict((oid, o.stand) for oid, o in z.objekte.items()),
+            "einreichung": dict((oid, o.einreichung) for oid, o in z.objekte.items()),
+            "stand_uebersicht": z.staende,
         },
     }
 

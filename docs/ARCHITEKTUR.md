@@ -167,7 +167,7 @@ modelle/
   TWP/ …
 ```
 
-**Veröffentlichen aus Revit** (Button „Modelle zum Viewer“ in der pyRevit-Extension):
+**Veröffentlichen aus Revit** (Werkzeug Durchbruchskoordination, Reiter „Ansichten“):
 1. Je Zeile eine 3D-Ansicht; Durchbrüche und – je nach Einstellung – Verknüpfungen bzw. das eigene
    Modell werden in einer zurückgerollten Transaktion ausgeblendet.
 2. Export als **FBX** (schnell, Revit-eigen; dazu `<Hash>.json` mit Kategorie/Familie/Typ/Ebene/System
@@ -176,6 +176,12 @@ modelle/
 3. Dateien in `modelle/<Modell>/` ablegen und Ereignis `modell_veroeffentlicht` schreiben.
 4. Die Liste der Exporte steht im Prüfset der Firma unter `viewer_exporte`; unveränderte Modelle
    (gleiche Revit-Dokumentversion, auch der Verknüpfungen) werden übersprungen.
+
+**2D-Pläne** (gleicher Reiter): Grundrisse und Schnitte werden in einer zurückgerollten Transaktion
+zugeschnitten (Zuschnitt aktiv, Rahmen unsichtbar, Beschriftungszuschnitt eng) und als PNG exportiert.
+Das Ereignis `modell_veroeffentlicht` (Format `png`) trägt unter `plan` die vier Ecken in Revit-
+Koordinaten; der Viewer legt das Bild dort hin (Grundriss: knapp über der Ebene, im Grundriss-Modus
+wie ein Blatt über dem Modell und unter den Durchbrüchen; Schnitt: senkrecht in der Schnittebene).
 
 **Ohne Revit**: IFC oder FBX im Browser hochladen (Feld „+ Modell laden“) → liegt danach genauso im Ordner.
 
