@@ -236,6 +236,8 @@ plaene/
 pruefsets/
 *.ifc
 *.frag
+*.fbx
+*.dbkg
 *.rvt
 *.rfa
 *.bcf

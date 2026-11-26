@@ -41,8 +41,11 @@ Bedienung:
   - **Schnitte** – „+ Schnitt“ (auf eine Fläche klicken, Ebene am Pfeil ziehen) oder „+ Box“. Jeder Schnitt hat
     einen Namen (Doppelklick: umbenennen), Box-Seiten per Regler, Ebene umdrehbar. Oben im Auswahlfeld
     zwischen den Schnitten **umschalten**; es ist immer höchstens einer aktiv.
+  - **Röntgen** – Modelle blass, Durchbrüche bleiben voll sichtbar (auch im Menü „Ansicht ⚙“).
   - **Messen** – zwei Punkte anklicken (rastet auf Ecken ein): Strecke, waagerecht und senkrecht.
     Weiter messen bis Esc; „Messen“ erneut klicken löscht die Messungen.
+- **Beschriftung** (Ansicht ⚙ › Darstellung): *Automatisch* zeigt Nummer · Größe für die Auswahl, unter der Maus
+  und in Nahsicht – ohne Überdeckung; *Alle* oder *Aus* wählbar.
 - **Seitenleiste links**: Modelle, Pläne (2D) und Durchbruch-Stände – je mit dem Auge schaltbar.
   Je Stand zeigen farbige Zahlen, wie viele in Prüfung, abgelehnt oder frei sind (Klick filtert).
   ⌖ am Modell: Kategorien, „bei mir nicht laden“ und **Ausrichten**: am genauesten **mit Punkten** – denselben
@@ -51,6 +54,8 @@ Bedienung:
   der Eigentümer des Modells kann die Lage **für alle speichern**.
 - Große FBX aus Revit: Teile gleicher Kategorie und Farbe werden beim Laden zusammengelegt
   (Zehntausende Bauteile → wenige Dutzend Körper); angeklickte Bauteile zeigen trotzdem ihre Revit-Eigenschaften.
+  Beim ersten Öffnen legt der Viewer daneben eine kompakte Fassung `<Hash>.dbkg` ab (etwa ein Zehntel der
+  Größe); alle späteren Öffnungen laden in Sekunden.
 - **+ Modell laden** (gestricheltes Feld unten links): IFC oder FBX anklicken oder hineinziehen – liegt danach für alle im Projektordner.
 - Rechts die Durchbruch-Liste (Standard: „Wartet auf mich“), darunter Details mit Freigaben, Verlauf und Chat.
 - Neue Einträge anderer Parteien erscheinen automatisch (alle 5 Sekunden).

@@ -418,6 +418,75 @@ export class Viewer {
     return { meshes: neu, nachKategorie, anzahl };
   }
 
+  /**
+   * Kompakte Ablage eines geladenen FBX (einmalig, wie IFC → Fragments): die zusammengelegten Körper,
+   * Koordinaten auf 16 Bit je Achse gerastert (≈ 3 mm bei 200 m), dazu Lage, Kategorien und Bauteil-Bereiche;
+   * alles gzip-gepackt. Laden braucht dann weder FBX-Parser noch Ausrichtung.
+   */
+  async fbxKompakt(id) {
+    const f = this.fbx.get(id);
+    if (!f) return null;
+    const teile = [], kopf = { version: 1, matrix: f.gruppe.matrix.toArray(), kern: [f.kern.min.toArray(), f.kern.max.toArray()],
+      kategorien: (this.kategorien.get(id) || []).map((k) => [k.name, k.anzahl]), toepfe: [] };
+    for (const mesh of f.meshes) {
+      const pos = mesh.geometry.attributes.position.array, bb = mesh.geometry.boundingBox;
+      const lo = bb.min.toArray(), groesse = bb.max.clone().sub(bb.min).toArray().map((g) => g || 1);
+      const q = new Uint16Array(pos.length);
+      for (let i = 0; i < pos.length; i++) q[i] = Math.round(((pos[i] - lo[i % 3]) / groesse[i % 3]) * 65535);
+      const d = mesh.userData.dbk, mat = mesh.material.userData.alt || mesh.material;
+      kopf.toepfe.push({ kat: d.kategorie, farbe: mesh.material.color.getHexString(), deckkraft: mat.opacity ?? 1,
+        n: pos.length, lo, groesse, eids: d.eids, ab: d.ab.length });
+      teile.push(q.buffer, new Uint8Array((4 - (q.byteLength % 4)) % 4),
+        d.ab.buffer.slice(d.ab.byteOffset, d.ab.byteOffset + d.ab.byteLength));
+    }
+    const kopfBytes = new TextEncoder().encode(JSON.stringify(kopf));
+    const laenge = new Uint32Array([kopfBytes.length]);
+    const fuell = new Uint8Array((4 - (kopfBytes.length % 4)) % 4);   // Ausrichtung für die Zahlenfelder
+    const blob = new Blob([laenge, kopfBytes, fuell, ...teile]);
+    return new Response(blob.stream().pipeThrough(new CompressionStream("gzip"))).arrayBuffer();
+  }
+
+  /** Gegenstück zu fbxKompakt: ohne FBX-Parser in Sekunden geladen. */
+  async ladeFbxKompakt(id, gepackt, info) {
+    this.entferneFbx(id);
+    const buf = await new Response(new Blob([gepackt]).stream().pipeThrough(new DecompressionStream("gzip"))).arrayBuffer();
+    const n = new Uint32Array(buf, 0, 1)[0];
+    const kopf = JSON.parse(new TextDecoder().decode(new Uint8Array(buf, 4, n)));
+    let ofs = 4 + n + ((4 - (n % 4)) % 4);
+    const gruppe = new THREE.Group();
+    gruppe.name = "FBX " + id;
+    new THREE.Matrix4().fromArray(kopf.matrix).decompose(gruppe.position, gruppe.quaternion, gruppe.scale);
+    const nachKategorie = new Map(), meshes = [];
+    for (const t of kopf.toepfe) {
+      const q = new Uint16Array(buf, ofs, t.n);
+      ofs += t.n * 2;
+      ofs += (4 - (ofs % 4)) % 4;
+      const ab = new Uint32Array(buf.slice(ofs, ofs + t.ab * 4));
+      ofs += t.ab * 4;
+      const pos = new Float32Array(t.n);
+      for (let i = 0; i < t.n; i++) pos[i] = t.lo[i % 3] + (q[i] / 65535) * t.groesse[i % 3];
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+      geo.computeBoundingSphere();
+      geo.computeBoundingBox();
+      const mesh = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color: new THREE.Color("#" + t.farbe), side: THREE.DoubleSide,
+        flatShading: true, transparent: t.deckkraft < 1, opacity: t.deckkraft }));
+      mesh.name = `FBX ${id} – ${t.kat}`;
+      mesh.userData.dbk = { modell: id, kategorie: t.kat, ab, eids: t.eids };
+      gruppe.add(mesh);
+      meshes.push(mesh);
+      if (!nachKategorie.has(t.kat)) nachKategorie.set(t.kat, []);
+      nachKategorie.get(t.kat).push(mesh);
+    }
+    this.world.scene.three.add(gruppe);
+    gruppe.updateMatrixWorld(true);
+    const kern = new THREE.Box3(new THREE.Vector3(...kopf.kern[0]), new THREE.Vector3(...kopf.kern[1]));
+    this.fbx.set(id, { gruppe, info, nachKategorie, meshes, kern });
+    this.kategorien = this.kategorien || new Map();
+    this.kategorien.set(id, kopf.kategorien.map(([name, anzahl]) => ({ name, gruppe: "Revit", klassen: [], an: true, anzahl })));
+    return this.kategorien.get(id);
+  }
+
   /** Aus einem Treffer auf einem zusammengelegten FBX-Mesh: Bauteil-ID und Dreiecksbereich. */
   _fbxBauteil(mesh, dreieck) {
     const d = mesh.userData.dbk, ab = d.ab;
@@ -993,12 +1062,20 @@ export class Viewer {
     let start = null, letzte = 0, laeuft = false;
     // Drehpunkt: Punkt unter der Maus laufend (gedrosselt) bestimmen
     el.addEventListener("pointermove", async (e) => {
-      if (e.buttons || laeuft || !this.nav.drehpunkt) return;
+      if (e.buttons || laeuft) return;
       const jetzt = performance.now();
-      if (jetzt - letzte < 150) return;
+      if (jetzt - letzte < 120) return;
       letzte = jetzt;
       laeuft = true;
-      try { this._mausPunkt = await this._punktUnterMaus(); } finally { laeuft = false; }
+      try {
+        // Durchbruch unter der Maus → Beschriftung zeigen
+        const t = this.caster.castRayToObjects([...this.meshes.values()].filter((m) => m.visible));
+        let o = t?.object;
+        while (o && !o.userData.id) o = o.parent;
+        const neu = o && (t.object.name === "grundriss" || this._nichtWeggeschnitten(t.point)) ? o.userData.id : null;
+        if (neu !== this._hoverId) { this._hoverId = neu; el.style.cursor = neu ? "pointer" : ""; }
+        if (this.nav.drehpunkt) this._mausPunkt = await this._punktUnterMaus();
+      } finally { laeuft = false; }
     });
     el.addEventListener("pointerdown", (e) => {
       start = { x: e.clientX, y: e.clientY };
@@ -1156,16 +1233,29 @@ export class Viewer {
     const breite = this.container.clientWidth, hoehe = this.container.clientHeight;
     const vorhanden = new Map([...this.labels.children].map((d) => [d.dataset.id, d]));
     const v = new THREE.Vector3();
-    for (const [id, m] of this.meshes) {
+    // Beschriftung: „auto“ = Auswahl, Maus darüber und Durchbrüche in Nahsicht – ohne Überdeckung;
+    // „alle“ = jeder sichtbare; „aus“ = nur Auswahl und Maus darüber.
+    const art = this.beschriftung === false ? "aus" : this.beschriftung === true ? "auto" : (this.beschriftung || "auto");
+    const nah = this.modus === "plan" ? Infinity : 14;
+    const belegt = [];
+    const frei = (x, y) => !belegt.some(([bx, by]) => Math.abs(bx - x) < 110 && Math.abs(by - y) < 22);
+    const reihenfolge = [...this.meshes].sort(([a], [b]) =>
+      ((b === this.auswahl) - (a === this.auswahl)) || ((b === this._hoverId) - (a === this._hoverId)));
+    for (const [id, m] of reihenfolge) {
       let d = vorhanden.get(id);
       vorhanden.delete(id);
       const anker = this._anker(m);
-      const zeigen = this.beschriftung && m.visible && this._nichtWeggeschnitten(anker);
+      const wichtig = id === this.auswahl || id === this._hoverId;
+      let zeigen = m.visible && this._nichtWeggeschnitten(anker) &&
+        (wichtig || art === "alle" || (art === "auto" && cam.position.distanceTo(anker) < nah));
       if (zeigen) {
         v.copy(anker);
         if (this.modus !== "plan") v.y += 0.35;
         v.project(cam);
         if (v.z > 1 || v.x < -1.1 || v.x > 1.1 || v.y < -1.1 || v.y > 1.1) { if (d) d.style.display = "none"; continue; }
+        const sx = ((v.x + 1) / 2) * breite, sy = ((1 - v.y) / 2) * hoehe;
+        if (!wichtig && art !== "alle" && !frei(sx, sy)) { if (d) d.style.display = "none"; continue; }
+        belegt.push([sx, sy]);
         if (!d) {
           d = document.createElement("div");
           d.className = "label";
@@ -1177,11 +1267,39 @@ export class Viewer {
         if (d.textContent !== txt) d.textContent = txt;
         d.classList.toggle("aktiv", id === this.auswahl);
         d.style.display = "";
-        d.style.transform = `translate(${((v.x + 1) / 2) * breite}px, ${((1 - v.y) / 2) * hoehe}px) translate(-50%, -100%)`;
+        d.style.transform = `translate(${sx}px, ${sy}px) translate(-50%, -100%)`;
       } else if (d) d.style.display = "none";
     }
     for (const d of vorhanden.values()) d.remove();
     this._messTexteAktualisieren(cam, breite, hoehe);
+  }
+
+  // ------------------------------------------------------------- Röntgen
+
+  /** Modelle blass (durchscheinend), Durchbrüche bleiben voll sichtbar – so sieht man, wo sie liegen. */
+  async roentgen(an, deckkraft = 0.15) {
+    this._roentgen = an;
+    for (const [, m] of this.fragments.list) {
+      try {
+        const ids = await m.getItemsIdsWithGeometry();
+        if (an) await m.setOpacity(ids, deckkraft); else await m.resetOpacity(ids);
+      } catch (e) { console.warn("Röntgen (Fragments)", e); }
+    }
+    for (const f of this.fbx.values()) {
+      for (const mesh of f.meshes) {
+        const mat = mesh.material;
+        if (an) {
+          mat.userData.alt = mat.userData.alt || { transparent: mat.transparent, opacity: mat.opacity };
+          Object.assign(mat, { transparent: true, opacity: deckkraft, depthWrite: false });
+        } else if (mat.userData.alt) {
+          Object.assign(mat, mat.userData.alt, { depthWrite: true });
+          delete mat.userData.alt;
+        }
+        mat.needsUpdate = true;
+      }
+    }
+    for (const m of this.meshes.values()) m.renderOrder = an ? 10 : 0;
+    await this.fragments.core.update(true);
   }
 
   // ------------------------------------------------------------- Messen

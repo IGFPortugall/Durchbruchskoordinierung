@@ -78,24 +78,20 @@ Symbollinien zwischen den Ebenen – die Box ist dadurch mehrere Meter hoch, und
 
 ---
 
-## Phase 3 – Viewer: Durchbrüche klar sehen (teilweise gebaut: Plan-Ebene, benannte Schnitte, FBX zusammengelegt, Ausrichten mit Punkten)
+## Phase 3 – Viewer: Durchbrüche klar sehen ✓ (gebaut, offen: Schnitte für alle)
 
-- **Darstellung**: Durchbrüche als farbige Körper nach Status; Beschriftung nur beim Überfahren,
-  für die Auswahl und ab einer Zoomstufe – kein Beschriftungs-Teppich mehr.
-- **Hinspringen**: Klick in der Liste → Kamera fährt hin, automatische Schnittbox um den
-  Durchbruch, umgebendes Modell blass.
-- **2D-Grundriss** je Geschoss mit sauberer Schnitthöhe (z. B. 1,00 m über OKFF), Draufsicht,
-  Durchbrüche als Umriss mit Status.
-- **Plan-Ebene**: beschriftete Grundrisse/Schnitte aus Revit ✓ gebaut (Reiter „Ansichten“,
-  2D-Ansichten als Bild mit Lage) – die originalen Beschrifter liegen passgenau über dem Modell.
-- **Schnitte und Schnittboxen**: mehrere, benannt, in der Seitenleiste unter „Schnitte“
-  ein-/ausschaltbar; lokal oder „für alle speichern“.
-- **Große Modelle**: FBX einmal in ein kompaktes Format umwandeln und ablegen (wie IFC →
-  Fragments), damit nicht jeder 0,5 GB laden muss.
-- Seitenleiste: Stände mit Menü (zurückziehen, nur dieser Stand, Status-Filter).
+- ✓ **Darstellung**: Durchbrüche farbig nach Status; Beschriftung automatisch nur für Auswahl, Maus darüber
+  und Nahsicht, ohne Überdeckung. **Röntgen**: Modelle blass, Durchbrüche immer sichtbar.
+- ✓ **Hinspringen**: Klick in Liste/Modell → Schnittbox 2 m um den Durchbruch.
+- ✓ **2D-Grundriss** je Geschoss (Schnitt 1,00 m über OKFF), Durchbrüche als Umriss mit Status.
+- ✓ **Plan-Ebene**: beschriftete Grundrisse/Schnitte aus Revit (Reiter „Ansichten“) passgenau über dem Modell.
+- ✓ **Schnitte und Schnittboxen**: benannt, Werkzeug unten links, umschalten oben. Offen: „für alle speichern“.
+- ✓ **Messen** und **Ausrichten mit Punktpaaren**.
+- ✓ **Große Modelle**: FBX zusammengelegt und einmal kompakt abgelegt (`.dbkg`, etwa ein Zehntel der Größe,
+  Laden in Sekunden).
+- ✓ Seitenleiste: Stände mit Zurückziehen und Status-Chips.
 
 ---
-
 ## Phase 4 – Revit-Prüfleiste ✓ (gebaut)
 
 - Neuer Knopf **„Durchbruchsprüfung“**: andockbare Leiste wie Eigenschaften/Projektbrowser.

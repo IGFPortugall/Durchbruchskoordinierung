@@ -64,6 +64,7 @@ async function start() {
     const e = ansichtEinstellungen();
     app.viewer.navigation(e.nav);
     app.viewer.boxRahmen = e.boxRahmen;
+    app.viewer.beschriftung = e.beschriftung || "auto";
     app.viewer.schnittGriffeZeigen(e.griffe);
   }
   bedienelemente();
@@ -157,7 +158,7 @@ async function modelleLaden() {
         continue;                                  // Pläne: anfangs ausgeblendet, eigene Liste
       } else if (/\.fbx$/i.test(v.datei)) {
         const info = v.info ? JSON.parse(new TextDecoder("utf-8").decode(await app.ablage.liesBinaer(v.info))) : null;
-        await app.viewer.ladeFbx(id, await app.ablage.liesBinaer(v.datei), info);
+        await fbxLaden(id, v, info);
       } else await app.viewer.ladeModell(id, await app.ablage.liesBinaer(v.datei));
       app.geladeneModelle.set(id, v.hash);
       app.sichtbareModelle.add(id);
@@ -178,6 +179,7 @@ async function modelleLaden() {
     [...app.viewer.ebenen].reverse().map((e) => `<option>${esc(e.name)}</option>`).join("");
   g.value = vorher;
   ebenenSchalter();
+  if (ansichtEinstellungen().roentgen) await app.viewer.roentgen(true);
   inhalteZeichnen();
   zeigeHinweis(app.geladeneModelle.size ? "" :
     "Noch kein Modell. Links „+ Modell laden“ (IFC/FBX) oder in Revit: Durchbruchskoordination › Ansichten.");
@@ -206,6 +208,23 @@ async function modelleAbgleichen() {
     app.sichtbareModelle.delete(id);
   }
   inhalteZeichnen();
+}
+
+/** FBX: vorhandene kompakte Fassung (.dbkg) nutzen, sonst FBX lesen und die kompakte Fassung für alle ablegen. */
+async function fbxLaden(id, v, info) {
+  const kompakt = v.datei.replace(/\.fbx$/i, ".dbkg");
+  try {
+    await app.viewer.ladeFbxKompakt(id, await app.ablage.liesBinaer(kompakt), info);
+    return;
+  } catch { /* noch nicht umgewandelt */ }
+  zeigeHinweis(`Modell ${id}: FBX wird gelesen und einmalig kompakt abgelegt …`);
+  await app.viewer.ladeFbx(id, await app.ablage.liesBinaer(v.datei), info);
+  try {
+    const daten = await app.viewer.fbxKompakt(id);
+    if (daten) await app.ablage.zugang.schreibe(kompakt, daten);
+  } catch (e) {
+    console.warn("Kompakte Fassung konnte nicht abgelegt werden (evtl. schon vorhanden):", e.message);
+  }
 }
 
 /** IFC: vorhandene Fragments nutzen, sonst einmal umwandeln und für alle ablegen. */
@@ -451,7 +470,10 @@ function panelZeichnen() {
       <p class="p-klein">Doppelklick auf ein Bauteil zoomt heran. „Alles zeigen“ oben setzt die Ansicht zurück.</p>`;
   } else {
     inhalt = `<div class="p-abschnitt">Darstellung</div>
-      <label class="p-haupt"><input type="checkbox" id="p-beschriftung" ${v.beschriftung ? "checked" : ""}> Beschriftung der Durchbrüche (Nummer · Größe)</label>
+      <div class="p-klein" style="margin-top:6px">Beschriftung der Durchbrüche (Nummer · Größe)</div>
+      ${[["auto", "Automatisch – Auswahl, Maus darüber und Nahsicht, ohne Überdeckung"], ["alle", "Alle sichtbaren"], ["aus", "Nur Auswahl und Maus darüber"]]
+        .map(([k, t]) => `<label class="p-haupt"><input type="radio" name="p-beschr" value="${k}" ${(e.beschriftung || "auto") === k ? "checked" : ""}> ${t}</label>`).join("")}
+      <label class="p-haupt"><input type="checkbox" id="p-roentgen" ${e.roentgen ? "checked" : ""}> Röntgen: Modelle blass, Durchbrüche immer sichtbar</label>
       <label class="p-haupt"><input type="checkbox" id="p-rahmen" ${e.boxRahmen ? "checked" : ""}> Rahmen der Schnittbox zeigen</label>
       <label class="p-haupt"><input type="checkbox" id="p-griffe" ${e.griffe ? "checked" : ""}> Schnittebene mit Pfeil zum Verschieben zeigen</label>`;
   }
@@ -471,8 +493,12 @@ function panelZeichnen() {
     hinweisModus();
   };
   p.querySelectorAll("input[name=p-nav], #p-drehpunkt, #p-cursor, #p-tempo").forEach((i) => i.onchange = nav);
-  const beschr = p.querySelector("#p-beschriftung");
-  if (beschr) beschr.onchange = () => { v.beschriftung = beschr.checked; };
+  p.querySelectorAll("input[name=p-beschr]").forEach((r) => r.onchange = () => {
+    ansichtEinstellungen({ beschriftung: r.value });
+    v.beschriftung = r.value;
+  });
+  const roe = p.querySelector("#p-roentgen");
+  if (roe) roe.onchange = () => roentgen(roe.checked);
 }
 
 // ---------------------------------------------------------------- Seitenleiste „Inhalte“: Modelle · Stände
@@ -914,6 +940,15 @@ function auswahlBox(id) {
   }
 }
 
+/** Röntgen ein/aus – gemerkt im Browser. */
+async function roentgen(an) {
+  ansichtEinstellungen({ roentgen: an });
+  $("wk-roentgen").classList.toggle("an", an);
+  const roe = document.querySelector("#p-roentgen");
+  if (roe) roe.checked = an;
+  await app.viewer.roentgen(an);
+}
+
 /** Messen: immer zwei Punkte → Strecke. Läuft weiter, bis der Knopf erneut gedrückt (Messungen löschen) oder Esc. */
 async function messenUmschalten() {
   const v = app.viewer, knopf = $("wk-messen");
@@ -1165,6 +1200,8 @@ function bedienelemente() {
     else if ($("sp-auto").checked && app.auswahl) auswahlBox(app.auswahl);
   };
   $("wk-messen").onclick = messenUmschalten;
+  $("wk-roentgen").onclick = () => roentgen(!ansichtEinstellungen().roentgen);
+  $("wk-roentgen").classList.toggle("an", !!ansichtEinstellungen().roentgen);
   $("schnitt-wahl").onchange = () => schnittAktivieren($("schnitt-wahl").value || null);
   schnitteZeichnen();
   { const s = schnittAktiv(); if (s) schnittAktivieren(s.id); }
